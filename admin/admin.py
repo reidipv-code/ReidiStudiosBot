@@ -19,7 +19,7 @@ from core.db import (
     obtener_todos_los_usuarios,
 )
 
-DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 ADMINS = [7669914531]
 

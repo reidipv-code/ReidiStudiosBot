@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import obtener_datos, obtener_todos_los_usuarios, actualizar_tokens, sumar_xp
 
-DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_NORMAL = 10 * 60 * 60
 COOLDOWN_EXPIRADO = 1 * 60 * 60

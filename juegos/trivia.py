@@ -9,7 +9,7 @@ from core.db import obtener_datos, actualizar_tokens, sumar_xp
 from core.sesiones import iniciar_partida, terminar_partida
 from core.preguntas_trivia import TRIVIA
 
-DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600

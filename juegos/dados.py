@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp
 
-DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 APUESTA_MIN = 10
 APUESTA_MAX = 500

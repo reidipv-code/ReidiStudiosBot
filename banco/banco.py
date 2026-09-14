@@ -1,11 +1,8 @@
 import sqlite3
-import os
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.db import obtener_datos, actualizar_tokens
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+from core.db import obtener_datos, actualizar_tokens, DB_PATH
 
 LIMITE_BANCO = 4000
 
@@ -45,7 +42,7 @@ async def bank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     datos = obtener_datos(user_id)
     if datos is None:
-        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg tu_nombre")
+        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg nombre.pais")
         return
 
     nombre = datos[0]
@@ -73,7 +70,7 @@ async def depositar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     datos = obtener_datos(user_id)
     if datos is None:
-        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg tu_nombre")
+        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg nombre.pais")
         return
 
     if not context.args:
@@ -127,7 +124,7 @@ async def retirar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     datos = obtener_datos(user_id)
     if datos is None:
-        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg tu_nombre")
+        await update.message.reply_text("🔒 Debes estar registrado.\nUsa /reg nombre.pais")
         return
 
     if not context.args:

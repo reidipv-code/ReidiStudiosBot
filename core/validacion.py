@@ -2,6 +2,22 @@ import sqlite3
 
 from core.db import DB_PATH
 
+PALABRAS_PROHIBIDAS = [
+    "puta", "puto", "put@", "put4", "culo", "pinga", "mierda",
+    "coño", "pendejo", "cabrón", "cabron", "verga", "pija",
+    "polla", "mamon", "mamón", "marica", "maricon", "maricón",
+    "joto", "jota", "zorra", "perra", "malparido", "hijueputa",
+    "gonorrea", "carechimba", "careverga", "pirobo", "chupame",
+    "mierdero", "putita", "putito", "pendeja", "estupido",
+    "estúpido", "idiota", "imbecil", "imbécil", "tarado",
+    "tarada", "gilipollas", "capullo", "hostia", "joder",
+    "follar", "follando", "pito", "picha", "chinga", "chingada",
+    "chichis", "nalga", "nalgas", "tetas", "pene", "vagina",
+    "semen", "orgasmo", "porno", "pornografia", "pornografía",
+    "violacion", "violación", "violador", "nazi", "hitler",
+    "matate", "suicidate", "suicídate", "muerete", "muérete"
+]
+
 
 def validar_nombre(nombre):
     """
@@ -17,19 +33,15 @@ def validar_nombre(nombre):
 
     nombre = nombre.strip()
 
-    # Longitud mínima
     if len(nombre) < 3:
         return False, "❌ El nombre debe tener al menos 3 caracteres."
 
-    # Longitud máxima
     if len(nombre) > 20:
         return False, "❌ El nombre no puede tener más de 20 caracteres."
 
-    # No permitir espacios
     if " " in nombre:
         return False, "❌ El nombre no puede contener espacios."
 
-    # Solo letras, números y algunos caracteres permitidos
     caracteres_permitidos = (
         "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -44,7 +56,9 @@ def validar_nombre(nombre):
                 "números, `_` y `-`."
             )
 
-    # Comprobar que no exista otro usuario con ese nombre
+    if nombre.lower() in PALABRAS_PROHIBIDAS:
+        return False, "🚫 Ese nombre no está permitido.\nPor favor elige otro."
+
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()

@@ -3,21 +3,31 @@ from telegram.ext import ContextTypes
 
 from core.db import (
     esta_registrado, obtener_datos, obtener_lista_usuarios,
-    xp_total_para_nivel, rango_por_nivel, barra_progreso
+    xp_total_para_nivel, rango_por_nivel, barra_progreso,
+    obtener_pais
 )
+from core.paises import obtener_nombre as nombre_pais, obtener_bandera
 
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
-        await update.message.reply_text("⚠️ Primero regístrate con /reg tu_nombre")
+        await update.message.reply_text("⚠️ Primero regístrate con /reg nombre.pais")
         return
 
     datos = obtener_datos(user_id)
     nombre, id_interno, tokens, xp, nivel, sesion = datos
     barra = barra_progreso(xp, nivel)
     xp_siguiente = xp_total_para_nivel(nivel + 1)
+
+    pais = obtener_pais(user_id)
+    if pais:
+        bandera = obtener_bandera(pais)
+        nombre_pais_str = nombre_pais(pais)
+        linea_pais = f"\n{bandera} País: *{nombre_pais_str}*"
+    else:
+        linea_pais = "\n🌎 País: *No configurado*"
 
     await update.message.reply_text(
         f"👤 *{nombre.upper()}*\n"
@@ -28,7 +38,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"⭐ Nivel: *{nivel}*\n"
         f"✨ XP: {xp}/{xp_siguiente}\n"
         f"📊 {barra}\n"
-        f"💰 {tokens} tokens",
+        f"💰 {tokens} tokens"
+        f"{linea_pais}",
         parse_mode="Markdown"
     )
 

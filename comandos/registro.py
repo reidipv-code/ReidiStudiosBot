@@ -474,33 +474,3 @@ async def confirmar_accion(
         )
 
         raise ApplicationHandlerStop
-```
-
-### Qué cambia esta versión
-
-La única modificación importante está en `/reg`: ahora cualquier error queda capturado y se imprime en Railway:
-
-```text
-[REG ERROR] ...
-```
-
-y además intenta mostrarte el error directamente en Telegram.
-
-También verás el recorrido:
-
-```text
-[REG] Comando recibido
-[REG] context.args=['OriGamePlay.cuba']
-[REG] argumento=OriGamePlay.cuba
-[REG] nombre=OriGamePlay
-[REG] pais=cuba
-[REG] País válido
-[REG] Usuario no registrado
-[REG] Validando nombre...
-[REG] Nombre válido
-[REG] Ejecutando registrar()...
-```
-
-Esto nos permitirá saber exactamente dónde falla.
-
-**Importante:** después de probar `/reg OriGamePlay.cuba`, pásame el resultado que aparezca en Railway empezando por `[REG]` o `[REG ERROR]`. Con eso podemos corregir el problema definitivo en vez de seguir cambiando archivos a ciegas.

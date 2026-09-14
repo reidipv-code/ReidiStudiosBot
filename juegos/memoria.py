@@ -1,15 +1,12 @@
 import sqlite3
 import random
 import time
-import os
 import re
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp, resetear_xp
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, resetear_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 FRUTAS = ["🍎", "🍌", "🍇", "🍓", "🍊", "🍒", "🥝", "🍍", "🍑", "🍐",
           "🍋", "🍉", "🥭", "🫐", "🍈", "🥥", "🍅", "🥑", "🍆", "🌰"]
@@ -19,7 +16,6 @@ COOLDOWN_VICTORIA = 600
 
 partidas_memoria = {}
 
-# Patrón que reconoce emojis (incluyendo los compuestos)
 EMOJI_PATTERN = re.compile(
     "[\U0001F300-\U0001FAFF\U00002600-\U000027BF\U0001F1E0-\U0001F1FF]"
 )
@@ -82,7 +78,6 @@ def emojis_por_ronda(ronda):
 
 
 def extraer_emojis(texto):
-    """Extrae los emojis de un texto, contando cada emoji compuesto como uno."""
     return EMOJI_PATTERN.findall(texto)
 
 
@@ -200,7 +195,6 @@ async def responder_memoria(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     respuesta = texto[1:].strip()
 
-    # Extraer emojis (acepta pegados o separados)
     emojis_usuario = extraer_emojis(respuesta)
     emojis_correctos = partida["emojis"]
 

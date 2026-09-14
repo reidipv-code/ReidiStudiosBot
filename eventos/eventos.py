@@ -1,14 +1,11 @@
 import sqlite3
-import os
 import time
 import importlib
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, obtener_todos_los_usuarios
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+from core.db import obtener_datos, obtener_todos_los_usuarios, DB_PATH
 
 COOLDOWN_NORMAL = 10 * 60 * 60
 COOLDOWN_EXPIRADO = 1 * 60 * 60
@@ -61,7 +58,6 @@ def es_admin(user_id):
 
 
 def parsear_fecha(fecha_str):
-    """Acepta dd/mm/aa o dd/mm/aaaa, con o sin ceros a la izquierda."""
     partes = fecha_str.strip().split("/")
     if len(partes) != 3:
         return None
@@ -223,14 +219,11 @@ async def ver_evento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not busqueda:
         return
 
-    # Si es un número (ej. .177), no es un evento → ignorar
     if busqueda.isdigit():
         return
 
     evento = obtener_evento_por_nombre_o_id(busqueda)
     if evento is None:
-        # No dar error, simplemente ignorar.
-        # El mensaje puede ser una respuesta de trivia/mates/etc. que no coincidió.
         return
 
     (eid, nom, desc, fecha, hora, fecha_exp, hora_exp, lv, id_ev, archivo) = evento

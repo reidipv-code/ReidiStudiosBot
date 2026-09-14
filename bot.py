@@ -92,7 +92,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/start - Iniciar\n"
         "/help - Ayuda\n"
         "/reg nombre.pais - Registrarte\n"
-        "/setpais pais - Cambiar país\n"
+        "/setpais pais - Configurar país (una vez)\n"
         "/perfil - Ver tu perfil\n"
         "/bank - Ver tu banco\n"
         "/reclamar - Recompensa diaria\n"
@@ -192,6 +192,9 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_eventos_iniciando, interval=30, first=15)
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
 
+    # GRUPO -15: verificar registro (ANTES de todos los comandos)
+    app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=-15)
+
     # GRUPO -10: bloqueo de comandos en partida
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos_en_partida),
@@ -234,10 +237,7 @@ def main() -> None:
     # GRUPO 100: ver evento (.nombre)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), ver_evento), group=100)
 
-    # GRUPO 200: verificar registro en comandos
-    app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=200)
-
-    # Comandos
+    # Comandos de usuario
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("tutorial", tutorial))
@@ -251,6 +251,7 @@ def main() -> None:
     app.add_handler(CommandHandler("rango", rango_cmd))
     app.add_handler(CommandHandler("userslist", userslist))
 
+    # Comandos de juegos
     app.add_handler(CommandHandler("actividades", actividades))
     app.add_handler(CommandHandler("juegos", actividades))
     app.add_handler(CommandHandler("ruleta", ruleta))
@@ -263,16 +264,19 @@ def main() -> None:
     app.add_handler(CommandHandler("palabras", palabras))
     app.add_handler(CommandHandler("funks", funks))
 
+    # Comandos de banco
     app.add_handler(CommandHandler("bank", bank))
     app.add_handler(CommandHandler("depositar", depositar))
     app.add_handler(CommandHandler("retirar", retirar))
 
+    # Comandos de eventos
     app.add_handler(CommandHandler("reclamar", reclamar))
     app.add_handler(CommandHandler("eventos", eventos))
     app.add_handler(CommandHandler("addevent", addevent))
     app.add_handler(CommandHandler("removeevent", removeevent))
     app.add_handler(CommandHandler("editevent", editevent))
 
+    # Comandos de admin
     app.add_handler(CommandHandler("anunciar", anunciar))
     app.add_handler(CommandHandler("giveTokens", giveTokens))
     app.add_handler(CommandHandler("giveXP", giveXP))

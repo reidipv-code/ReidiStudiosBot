@@ -1,4 +1,4 @@
-# Lista de países y zonas horarias
+# Lista de países y zonas horarias 
 PAISES = {
     "mexico": {"nombre": "México", "zona": "America/Mexico_City", "bandera": "🇲🇽"},
     "cuba": {"nombre": "Cuba", "zona": "America/Havana", "bandera": "🇨🇺"},

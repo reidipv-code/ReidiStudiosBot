@@ -6,10 +6,11 @@ from telegram.ext import (
     filters, ApplicationHandlerStop
 )
 
-from core.db import init_db, esta_registrado, obtener_datos
+from core.db import init_db, esta_registrado, obtener_datos, usuario_tiene_pais
 from core.sesiones import init_sesiones_db, obtener_juego
+from core.paises import lista_paises_texto
 
-from comandos.registro import reg, unreg, deletereg, confirmar_accion
+from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
 
@@ -49,7 +50,8 @@ COMANDOS_VALIDOS = [
     "/bank", "/depositar", "/retirar", "/anunciar", "/reclamar",
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
-    "/dados", "/memoria", "/trivia", "/palabras", "/funks"
+    "/dados", "/memoria", "/trivia", "/palabras", "/funks",
+    "/setpais"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -83,11 +85,13 @@ async def bloquear_comandos_en_partida(update: Update, context: ContextTypes.DEF
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "¡Hola! Soy ReidiStudiosBot.\n\n"
-        "Regístrate con:\n/reg tu_nombre\n\n"
+        "Regístrate con:\n/reg nombre.pais\n\n"
+        "Ejemplo: /reg Juan.cuba\n\n"
         "Comandos:\n"
         "/start - Iniciar\n"
         "/help - Ayuda\n"
-        "/reg nombre - Registrarte\n"
+        "/reg nombre.pais - Registrarte\n"
+        "/setpais pais - Cambiar país\n"
         "/perfil - Ver tu perfil\n"
         "/bank - Ver tu banco\n"
         "/reclamar - Recompensa diaria\n"
@@ -100,9 +104,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "📋 *Comandos básicos:*\n"
-        "/start\n/help\n/reg\n/unreg\n/deletereg\n/perfil\n"
-        "/tokens\n/nivel\n/rango\n/userslist\n/bank\n/depositar\n/retirar\n"
-        "/reclamar\n/eventos\n/tutorial\n\n"
+        "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
+        "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
+        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n/tutorial\n\n"
         "🎮 Juegos: /actividades",
         parse_mode="Markdown"
     )
@@ -117,7 +121,7 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     comando = texto.split()[0].split("@")[0].lower()
-    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial"]
+    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais"]
 
     if comando not in COMANDOS_VALIDOS_LOWER:
         await update.message.reply_text(
@@ -132,12 +136,22 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
-        await update.message.reply_text("🔒 Debes registrarte primero.\n\nUsa: /reg tu_nombre")
+        await update.message.reply_text("🔒 Debes registrarte primero.\n\nUsa: /reg nombre.pais")
         raise ApplicationHandlerStop
 
     datos = obtener_datos(user_id)
     if datos[5] == 0:
         await update.message.reply_text("🔒 Sesión cerrada. Usa /reg.")
+        raise ApplicationHandlerStop
+
+    if not usuario_tiene_pais(user_id):
+        await update.message.reply_text(
+            "🌎 *Debes configurar tu país*\n\n"
+            "Usa: `/setpais pais`\n\n"
+            "Ejemplo: `/setpais cuba`\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
         raise ApplicationHandlerStop
 
 
@@ -226,6 +240,7 @@ def main() -> None:
     app.add_handler(CommandHandler("reg", reg))
     app.add_handler(CommandHandler("unreg", unreg))
     app.add_handler(CommandHandler("deletereg", deletereg))
+    app.add_handler(CommandHandler("setpais", setpais))
     app.add_handler(CommandHandler("perfil", perfil))
     app.add_handler(CommandHandler("tokens", tokens_cmd))
     app.add_handler(CommandHandler("nivel", nivel_cmd))

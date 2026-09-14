@@ -1,14 +1,11 @@
 import sqlite3
 import random
 import time
-import os
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600

@@ -1,14 +1,11 @@
 import sqlite3
 import random
 import time
-import os
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COLORES_VALIDOS = ["rojo", "verde", "azul", "amarillo", "naranja", "morado", "azul claro"]
 
@@ -69,7 +66,7 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     datos = obtener_datos(user_id)
     if datos is None or datos[5] != 1:
-        await update.message.reply_text("🔒 Debes estar registrado y con sesión activa.\nUsa /reg tu_nombre")
+        await update.message.reply_text("🔒 Debes estar registrado y con sesión activa.\nUsa /reg nombre.pais")
         return
 
     if not context.args:

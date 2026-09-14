@@ -1,10 +1,4 @@
-# ═══════════════════════════════════════════════════════════
-# admin/admin.py
-# Comandos de admin centralizados + formato Markdown→HTML
-# ═══════════════════════════════════════════════════════════
-
 import sqlite3
-import os
 import re
 from datetime import datetime
 
@@ -17,9 +11,8 @@ from core.db import (
     actualizar_tokens,
     sumar_xp,
     obtener_todos_los_usuarios,
+    DB_PATH,
 )
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 ADMINS = [7669914531]
 
@@ -28,9 +21,6 @@ def es_admin(user_id: int) -> bool:
     return user_id in ADMINS
 
 
-# ═══════════════════════════════════════════════════════════
-# FORMATO
-# ═══════════════════════════════════════════════════════════
 def convertir_formato(texto: str) -> str:
     texto = texto.replace("\\n", "\n")
 
@@ -64,9 +54,6 @@ def _formatear_fecha() -> str:
     return datetime.now().strftime("%d/%m/%Y - %H:%M")
 
 
-# ═══════════════════════════════════════════════════════════
-# /anunciar
-# ═══════════════════════════════════════════════════════════
 TIPOS_ANUNCIO = {
     "event":       ("🎉", "EVENTO ESPECIAL"),
     "update":      ("🔧", "ACTUALIZACIÓN"),
@@ -192,9 +179,6 @@ async def anunciar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-# ═══════════════════════════════════════════════════════════
-# give / remove masivo (Tokens y XP) — CON FORMATO
-# ═══════════════════════════════════════════════════════════
 async def _procesar_masivo(update, context, tipo, accion):
     user_id = update.effective_user.id
 

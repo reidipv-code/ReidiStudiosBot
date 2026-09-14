@@ -1,15 +1,12 @@
 import sqlite3
 import random
 import time
-import os
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.preguntas_trivia import TRIVIA
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
@@ -66,10 +63,7 @@ def formatear_tiempo(seg):
 
 def normalizar(texto):
     texto = texto.lower().strip()
-    for k, v in {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u",
-                 "à": "a", "è": "e", "ì": "i", "ò": "o", "ù": "u",
-                 "ä": "a", "ë": "e", "ï": "i", "ö": "o", "ü": "u",
-                 "ñ": "n"}.items():
+    for k, v in {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ñ": "n"}.items():
         texto = texto.replace(k, v)
     for signo in [".", ",", ";", ":", "!", "?", "¡", "¿", "\"", "'"]:
         texto = texto.replace(signo, "")

@@ -91,7 +91,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/start - Iniciar\n"
         "/help - Ayuda\n"
         "/reg nombre.pais - Registrarte\n"
-        "/setpais pais - Cambiar país\n"
+        "/setpais pais - Configurar país (una vez)\n"
         "/perfil - Ver tu perfil\n"
         "/bank - Ver tu banco\n"
         "/reclamar - Recompensa diaria\n"
@@ -175,7 +175,7 @@ def main() -> None:
 
     # JobQueue: revisa timeouts cada X segundos
     if app.job_queue is None:
-        print("⚠️ ADVERTENCIA: job_queue es None. Revisa que requirements.txt tenga [job-queue]")
+        print("⚠️ ADVERTENCIA: job_queue es None. Revisa requirements.txt tenga [job-queue]")
     else:
         app.job_queue.run_repeating(revisar_expiradas, interval=30, first=10)
         app.job_queue.run_repeating(revisar_timeouts_mates, interval=10, first=10)
@@ -220,64 +220,60 @@ def main() -> None:
         group=-3
     )
 
-    # GRUPO 1-5: respuestas de minijuegos
-    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_mates), group=1)
-    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_memoria), group=2)
-    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_trivia), group=3)
-    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_palabras), group=4)
-    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_funks), group=5)
+    # GRUPO 0: verificar registro (ANTES de los comandos)
+    app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=0)
+
+    # GRUPO 5-9: respuestas de minijuegos
+    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_mates), group=5)
+    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_memoria), group=6)
+    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_trivia), group=7)
+    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_palabras), group=8)
+    app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_funks), group=9)
 
     # GRUPO 100: ver evento (.nombre)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), ver_evento), group=100)
 
-    # GRUPO 200: verificar registro
-    app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=200)
+    # GRUPO 10: TODOS los comandos
+    app.add_handler(CommandHandler("start", start), group=10)
+    app.add_handler(CommandHandler("help", help_command), group=10)
+    app.add_handler(CommandHandler("tutorial", tutorial), group=10)
+    app.add_handler(CommandHandler("reg", reg), group=10)
+    app.add_handler(CommandHandler("unreg", unreg), group=10)
+    app.add_handler(CommandHandler("deletereg", deletereg), group=10)
+    app.add_handler(CommandHandler("setpais", setpais), group=10)
+    app.add_handler(CommandHandler("perfil", perfil), group=10)
+    app.add_handler(CommandHandler("tokens", tokens_cmd), group=10)
+    app.add_handler(CommandHandler("nivel", nivel_cmd), group=10)
+    app.add_handler(CommandHandler("rango", rango_cmd), group=10)
+    app.add_handler(CommandHandler("userslist", userslist), group=10)
 
-    # Comandos de usuario
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("tutorial", tutorial))
-    app.add_handler(CommandHandler("reg", reg))
-    app.add_handler(CommandHandler("unreg", unreg))
-    app.add_handler(CommandHandler("deletereg", deletereg))
-    app.add_handler(CommandHandler("setpais", setpais))
-    app.add_handler(CommandHandler("perfil", perfil))
-    app.add_handler(CommandHandler("tokens", tokens_cmd))
-    app.add_handler(CommandHandler("nivel", nivel_cmd))
-    app.add_handler(CommandHandler("rango", rango_cmd))
-    app.add_handler(CommandHandler("userslist", userslist))
+    app.add_handler(CommandHandler("actividades", actividades), group=10)
+    app.add_handler(CommandHandler("juegos", actividades), group=10)
+    app.add_handler(CommandHandler("ruleta", ruleta), group=10)
+    app.add_handler(CommandHandler("apostar", apostar), group=10)
+    app.add_handler(CommandHandler("cancelar", cancelar), group=10)
+    app.add_handler(CommandHandler("mates", mates), group=10)
+    app.add_handler(CommandHandler("dados", dados), group=10)
+    app.add_handler(CommandHandler("memoria", memoria), group=10)
+    app.add_handler(CommandHandler("trivia", trivia), group=10)
+    app.add_handler(CommandHandler("palabras", palabras), group=10)
+    app.add_handler(CommandHandler("funks", funks), group=10)
 
-    # Comandos de juegos
-    app.add_handler(CommandHandler("actividades", actividades))
-    app.add_handler(CommandHandler("juegos", actividades))
-    app.add_handler(CommandHandler("ruleta", ruleta))
-    app.add_handler(CommandHandler("apostar", apostar))
-    app.add_handler(CommandHandler("cancelar", cancelar))
-    app.add_handler(CommandHandler("mates", mates))
-    app.add_handler(CommandHandler("dados", dados))
-    app.add_handler(CommandHandler("memoria", memoria))
-    app.add_handler(CommandHandler("trivia", trivia))
-    app.add_handler(CommandHandler("palabras", palabras))
-    app.add_handler(CommandHandler("funks", funks))
+    app.add_handler(CommandHandler("bank", bank), group=10)
+    app.add_handler(CommandHandler("depositar", depositar), group=10)
+    app.add_handler(CommandHandler("retirar", retirar), group=10)
 
-    # Comandos de banco
-    app.add_handler(CommandHandler("bank", bank))
-    app.add_handler(CommandHandler("depositar", depositar))
-    app.add_handler(CommandHandler("retirar", retirar))
+    app.add_handler(CommandHandler("reclamar", reclamar), group=10)
+    app.add_handler(CommandHandler("eventos", eventos), group=10)
+    app.add_handler(CommandHandler("addevent", addevent), group=10)
+    app.add_handler(CommandHandler("removeevent", removeevent), group=10)
+    app.add_handler(CommandHandler("editevent", editevent), group=10)
 
-    # Comandos de eventos
-    app.add_handler(CommandHandler("reclamar", reclamar))
-    app.add_handler(CommandHandler("eventos", eventos))
-    app.add_handler(CommandHandler("addevent", addevent))
-    app.add_handler(CommandHandler("removeevent", removeevent))
-    app.add_handler(CommandHandler("editevent", editevent))
-
-    # Comandos de admin
-    app.add_handler(CommandHandler("anunciar", anunciar))
-    app.add_handler(CommandHandler("giveTokens", giveTokens))
-    app.add_handler(CommandHandler("giveXP", giveXP))
-    app.add_handler(CommandHandler("removeTokens", removeTokens))
-    app.add_handler(CommandHandler("removeXP", removeXP))
+    app.add_handler(CommandHandler("anunciar", anunciar), group=10)
+    app.add_handler(CommandHandler("giveTokens", giveTokens), group=10)
+    app.add_handler(CommandHandler("giveXP", giveXP), group=10)
+    app.add_handler(CommandHandler("removeTokens", removeTokens), group=10)
+    app.add_handler(CommandHandler("removeXP", removeXP), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

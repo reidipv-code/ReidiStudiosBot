@@ -1,8 +1,7 @@
 import sqlite3
-import os
 import time
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+from core.db import DB_PATH
 
 
 def init_sesiones_db():

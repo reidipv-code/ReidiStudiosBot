@@ -1,13 +1,10 @@
 import sqlite3
-import os
 import time
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 
 COOLDOWN = 24 * 60 * 60
 

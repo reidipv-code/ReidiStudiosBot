@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 from core.db import (
     esta_registrado, obtener_datos, obtener_todos_los_usuarios,
     registrar, eliminar_usuario, actualizar_sesion,
-    set_pais, usuario_tiene_pais
+    set_pais, usuario_tiene_pais, obtener_user_id_por_nombre
 )
 from core.validacion import validar_nombre
 from core.paises import (
@@ -86,18 +86,23 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     id_interno = registrar(user_id, username, nombre, pais)
+    nombre_pais = obtener_nombre(pais)
 
     await update.message.reply_text(
         f"✅ ¡Registro exitoso!\n\n"
         f"👤 *{nombre}*\n"
         f"🆔 *#{id_interno}*\n"
-        f"🌎 País: {obtener_nombre(pais)}\n"
+        f"🌎 País: {nombre_pais}\n"
         f"💰 *100 tokens*\n"
         f"⭐ *Nivel 1*",
         parse_mode="Markdown"
     )
 
-    texto_notif = f"🆕 <b>Nuevo usuario registrado</b>\n👤 <b>{nombre}</b> se ha unido al bot."
+    texto_notif = (
+        f"🆕 <b>Nuevo usuario registrado</b>\n"
+        f"👤 <b>{nombre}</b>\n"
+        f"🌎 Se unió desde: <b>{nombre_pais}</b>"
+    )
     await notificar_a_todos(context, user_id, texto_notif)
 
 

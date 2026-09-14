@@ -2,17 +2,21 @@ import sqlite3
 import os
 import time
 import importlib
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, obtener_todos_los_usuarios
+from core.db import obtener_datos, obtener_todos_los_usuarios, obtener_pais
+from core.paises import obtener_zona, obtener_nombre as nombre_pais
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_NORMAL = 10 * 60 * 60
 COOLDOWN_EXPIRADO = 1 * 60 * 60
 TIEMPO_CONFIRMACION = 5 * 60
+
+ZONA_ADMIN = "America/Havana"  # Los eventos se crean en hora de Cuba
 
 eventos_en_vista = {}
 eventos_esperando_inicio = {}
@@ -76,7 +80,8 @@ def parsear_fecha(fecha_str):
         return None
 
 
-def combinar_fecha_hora(fecha_str, hora_str):
+def combinar_fecha_hora_local(fecha_str, hora_str, zona):
+    """Devuelve un datetime con zona horaria."""
     dt_fecha = parsear_fecha(fecha_str)
     if dt_fecha is None:
         return None
@@ -84,7 +89,29 @@ def combinar_fecha_hora(fecha_str, hora_str):
         dt_hora = datetime.strptime(hora_str.strip(), "%H:%M")
     except ValueError:
         return None
-    return dt_fecha.replace(hour=dt_hora.hour, minute=dt_hora.minute)
+    dt = dt_fecha.replace(hour=dt_hora.hour, minute=dt_hora.minute)
+    return dt.replace(tzinfo=ZoneInfo(zona))
+
+
+def combinar_fecha_hora_utc(fecha_str, hora_str, zona=ZONA_ADMIN):
+    """Convierte fecha/hora local a UTC."""
+    dt_local = combinar_fecha_hora_local(fecha_str, hora_str, zona)
+    if dt_local is None:
+        return None
+    return dt_local.astimezone(timezone.utc)
+
+
+def hora_para_usuario(fecha_str, hora_str, user_id):
+    """Convierte la hora UTC guardada a la hora local del usuario."""
+    dt_utc = combinar_fecha_hora_utc(fecha_str, hora_str)
+    if dt_utc is None:
+        return fecha_str, hora_str
+
+    pais = obtener_pais(user_id)
+    zona = obtener_zona(pais) if pais else ZONA_ADMIN
+
+    dt_local = dt_utc.astimezone(ZoneInfo(zona))
+    return dt_local.strftime("%d/%m/%y"), dt_local.strftime("%H:%M")
 
 
 def formatear_tiempo(seg):
@@ -200,11 +227,17 @@ async def eventos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("📅 *No hay eventos disponibles.*", parse_mode="Markdown")
         return
 
-    texto = "📅 *EVENTOS DISPONIBLES*\n━━━━━━━━━━━━━━━━━━━\n\n"
+    pais = obtener_pais(user_id)
+    zona_usuario = nombre_pais(pais) if pais else "Cuba"
+
+    texto = f"📅 *EVENTOS DISPONIBLES*\n━━━━━━━━━━━━━━━━━━━\n"
+    texto += f"🌎 Hora local: {zona_usuario}\n\n"
+
     for i, ev in enumerate(lista, 1):
         eid, nom, desc, fecha, hora, fecha_exp, hora_exp, lv, id_ev, archivo = ev
+        fecha_local, hora_local = hora_para_usuario(fecha, hora, user_id)
         restriccion = f"🔒 Nivel mín. {lv}" if lv > 0 else "🔓 Sin restricción"
-        texto += f"{i}. *{nom}*\n   🆔 ID: `{id_ev}`\n   📅 {fecha} - {hora}\n   {restriccion}\n\n"
+        texto += f"{i}. *{nom}*\n   🆔 ID: `{id_ev}`\n   📅 {fecha_local} - {hora_local}\n   {restriccion}\n\n"
 
     texto += "Usa `.nombre` o `.id` para ver los detalles."
     await update.message.reply_text(texto, parse_mode="Markdown")
@@ -233,6 +266,12 @@ async def ver_evento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     datos = obtener_datos(user_id)
     nivel_usuario = datos[4]
+    pais = obtener_pais(user_id)
+    zona_nombre = nombre_pais(pais) if pais else "Cuba"
+
+    fecha_local, hora_local = hora_para_usuario(fecha, hora, user_id)
+    fecha_exp_local, hora_exp_local = hora_para_usuario(fecha_exp, hora_exp, user_id)
+
     restriccion = f"🔒 Nivel mínimo: *{lv}*" if lv > 0 else "🔓 Sin restricción"
     puede = nivel_usuario >= lv if lv > 0 else True
 
@@ -240,8 +279,8 @@ async def ver_evento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         f"📅 *EVENTO: {nom}*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"📝 *Descripción:*\n{desc}\n\n"
-        f"🕐 *Inicio:* {fecha} a las {hora}\n"
-        f"🕓 *Expira:* {fecha_exp} a las {hora_exp}\n"
+        f"🕐 *Inicio:* {fecha_local} a las {hora_local} ({zona_nombre})\n"
+        f"🕓 *Expira:* {fecha_exp_local} a las {hora_exp_local} ({zona_nombre})\n"
         f"{restriccion}\n"
         f"🆔 ID: `{id_ev}`\n\n"
     )
@@ -373,7 +412,8 @@ async def addevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         await update.message.reply_text(
-            "⚠️ Uso: `/addevent nombre|desc|fecha|hora|fecha_exp|hora_exp|lv|id|archivo`",
+            "⚠️ Uso: `/addevent nombre|desc|fecha|hora|fecha_exp|hora_exp|lv|id|archivo`\n\n"
+            "⏰ *Las horas que pongas son en hora de Cuba.*",
             parse_mode="Markdown"
         )
         return
@@ -385,7 +425,7 @@ async def addevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     nombre, desc, fecha, hora, fecha_exp, hora_exp, lv_str, id_evento, archivo = [p.strip() for p in partes]
 
-    if combinar_fecha_hora(fecha, hora) is None or combinar_fecha_hora(fecha_exp, hora_exp) is None:
+    if combinar_fecha_hora_local(fecha, hora, ZONA_ADMIN) is None or combinar_fecha_hora_local(fecha_exp, hora_exp, ZONA_ADMIN) is None:
         await update.message.reply_text("❌ Fechas u horas inválidas.")
         return
 
@@ -395,6 +435,7 @@ async def addevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("❌ El nivel debe ser número.")
         return
 
+    # Guardar la hora tal cual (hora de Cuba)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute(
@@ -405,18 +446,31 @@ async def addevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     conn.commit()
     conn.close()
 
-    await update.message.reply_text(f"✅ Evento *{nombre}* añadido.", parse_mode="Markdown")
-
-    texto_notif = (
-        f"🎉 <b>¡NUEVO EVENTO DISPONIBLE!</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"📅 <b>{nombre}</b>\n📝 {desc}\n\n"
-        f"🕐 Inicio: <b>{fecha}</b> a las <b>{hora}</b>\n"
-        f"🕓 Expira: <b>{fecha_exp}</b> a las <b>{hora_exp}</b>\n"
-        f"🆔 ID: <code>{id_evento}</code>\n\n"
-        f"Consulta <code>/eventos</code>."
+    await update.message.reply_text(
+        f"✅ Evento *{nombre}* añadido.\n⏰ Horas en zona de Cuba.",
+        parse_mode="Markdown"
     )
-    await notificar_a_todos(context, texto_notif)
+
+    # Notificar a cada usuario en SU hora local
+    for uid in obtener_todos_los_usuarios():
+        try:
+            fecha_local, hora_local = hora_para_usuario(fecha, hora, uid)
+            fecha_exp_local, hora_exp_local = hora_para_usuario(fecha_exp, hora_exp, uid)
+            pais = obtener_pais(uid)
+            zona_nombre = nombre_pais(pais) if pais else "Cuba"
+
+            texto_notif = (
+                f"🎉 <b>¡NUEVO EVENTO DISPONIBLE!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"📅 <b>{nombre}</b>\n📝 {desc}\n\n"
+                f"🕐 Inicio: <b>{fecha_local}</b> a las <b>{hora_local}</b> ({zona_nombre})\n"
+                f"🕓 Expira: <b>{fecha_exp_local}</b> a las <b>{hora_exp_local}</b>\n"
+                f"🆔 ID: <code>{id_evento}</code>\n\n"
+                f"Consulta <code>/eventos</code>."
+            )
+            await context.bot.send_message(chat_id=uid, text=texto_notif, parse_mode="HTML")
+        except Exception:
+            pass
 
 
 async def removeevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -467,7 +521,8 @@ async def editevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         await update.message.reply_text(
-            "⚠️ Uso: `/editevent nombre|id|desc|nombre_nuevo|fecha|hora|fecha_exp|hora_exp|lv|archivo`",
+            "⚠️ Uso: `/editevent nombre|id|desc|nombre_nuevo|fecha|hora|fecha_exp|hora_exp|lv|archivo`\n\n"
+            "⏰ *Las horas son en hora de Cuba.*",
             parse_mode="Markdown"
         )
         return
@@ -527,7 +582,7 @@ async def editevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def revisar_eventos_iniciando(context) -> None:
-    ahora = datetime.now()
+    ahora = datetime.now(timezone.utc)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, nombre, fecha, hora, id_evento FROM eventos WHERE activo = 1 AND notificado_inicio = 0")
@@ -535,7 +590,7 @@ async def revisar_eventos_iniciando(context) -> None:
     conn.close()
 
     for eid, nombre, fecha, hora, id_ev in lista:
-        dt_inicio = combinar_fecha_hora(fecha, hora)
+        dt_inicio = combinar_fecha_hora_utc(fecha, hora, ZONA_ADMIN)
         if dt_inicio is None:
             continue
 
@@ -552,16 +607,19 @@ async def revisar_eventos_iniciando(context) -> None:
                 "hora_aviso": time.time()
             }
 
-            texto = (
-                f"🎉 <b>¡EL EVENTO VA A COMENZAR!</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━\n"
-                f"📅 <b>{nombre}</b>\n\n"
-                f"Responde <code>.comenzar</code> para participar.\n"
-                f"Responde <code>.cancelar</code> para no participar.\n\n"
-                f"⏱️ 5 minutos o serás descalificado."
-            )
             for uid in asistentes:
                 try:
+                    pais = obtener_pais(uid)
+                    zona_nombre = nombre_pais(pais) if pais else "Cuba"
+                    texto = (
+                        f"🎉 <b>¡EL EVENTO VA A COMENZAR!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━━\n"
+                        f"📅 <b>{nombre}</b>\n"
+                        f"⏰ Hora: {zona_nombre}\n\n"
+                        f"Responde <code>.comenzar</code> para participar.\n"
+                        f"Responde <code>.cancelar</code> para no participar.\n\n"
+                        f"⏱️ 5 minutos o serás descalificado."
+                    )
                     await context.bot.send_message(chat_id=uid, text=texto, parse_mode="HTML")
                 except Exception:
                     pass
@@ -593,7 +651,7 @@ async def revisar_descalificados(context) -> None:
 
 
 async def revisar_eventos_expirados(context) -> None:
-    ahora = datetime.now()
+    ahora = datetime.now(timezone.utc)
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT id, nombre, fecha_exp, hora_exp FROM eventos WHERE activo = 1")
@@ -601,7 +659,7 @@ async def revisar_eventos_expirados(context) -> None:
     conn.close()
 
     for eid, nombre, fecha_exp, hora_exp in lista:
-        dt_exp = combinar_fecha_hora(fecha_exp, hora_exp)
+        dt_exp = combinar_fecha_hora_utc(fecha_exp, hora_exp, ZONA_ADMIN)
         if dt_exp is None:
             continue
         if ahora >= dt_exp:

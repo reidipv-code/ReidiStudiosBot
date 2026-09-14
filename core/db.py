@@ -1,7 +1,14 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+# Si existe el volumen de Railway (/data), usarlo.
+# Si no, usar la ruta local (para Termux).
+RAILWAY_VOLUME_PATH = "/data"
+
+if os.path.exists(RAILWAY_VOLUME_PATH):
+    DB_PATH = os.path.join(RAILWAY_VOLUME_PATH, "usuarios.db")
+else:
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 
 def init_db():

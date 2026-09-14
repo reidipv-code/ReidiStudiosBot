@@ -4,9 +4,13 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import (
     esta_registrado, obtener_datos, obtener_todos_los_usuarios,
-    registrar, eliminar_usuario, actualizar_sesion
+    registrar, eliminar_usuario, actualizar_sesion,
+    set_pais, usuario_tiene_pais
 )
 from core.validacion import validar_nombre
+from core.paises import (
+    es_pais_valido, obtener_nombre, lista_paises_texto
+)
 
 
 async def notificar_a_todos(context, user_id_excluir, texto):
@@ -25,7 +29,35 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     username = update.effective_user.username or "sin_username"
 
     if not context.args:
-        await update.message.reply_text("⚠️ Debes poner tu nombre.\nEjemplo: /reg Juan")
+        await update.message.reply_text(
+            "⚠️ Uso: `/reg nombre.pais`\n\n"
+            "Ejemplo: `/reg Juan.cuba`\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
+        return
+
+    argumento = " ".join(context.args).strip()
+
+    if "." not in argumento:
+        await update.message.reply_text(
+            "⚠️ Debes poner tu nombre y tu país separados por un punto.\n\n"
+            "Ejemplo: `/reg Juan.cuba`\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
+        return
+
+    nombre, pais = argumento.rsplit(".", 1)
+    nombre = nombre.strip()
+    pais = pais.lower().strip()
+
+    if not es_pais_valido(pais):
+        await update.message.reply_text(
+            f"❌ País no válido: *{pais}*\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
         return
 
     if esta_registrado(user_id):
@@ -37,26 +69,29 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
         else:
+            # Reactivar sesión + actualizar país si no tiene
+            set_pais(user_id, pais)
             actualizar_sesion(user_id, 1)
             await update.message.reply_text(
-                f"✅ ¡Bienvenido de vuelta, *{datos[0]}*!",
+                f"✅ ¡Bienvenido de vuelta, *{datos[0]}*!\n"
+                f"🌎 País: {obtener_nombre(pais)}",
                 parse_mode="Markdown"
             )
             return
 
-    nombre = " ".join(context.args).strip()
     valido, error = validar_nombre(nombre)
 
     if not valido:
         await update.message.reply_text(error, parse_mode="Markdown")
         return
 
-    id_interno = registrar(user_id, username, nombre)
+    id_interno = registrar(user_id, username, nombre, pais)
 
     await update.message.reply_text(
         f"✅ ¡Registro exitoso!\n\n"
         f"👤 *{nombre}*\n"
         f"🆔 *#{id_interno}*\n"
+        f"🌎 País: {obtener_nombre(pais)}\n"
         f"💰 *100 tokens*\n"
         f"⭐ *Nivel 1*",
         parse_mode="Markdown"
@@ -64,6 +99,39 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     texto_notif = f"🆕 <b>Nuevo usuario registrado</b>\n👤 <b>{nombre}</b> se ha unido al bot."
     await notificar_a_todos(context, user_id, texto_notif)
+
+
+async def setpais(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+
+    if not esta_registrado(user_id):
+        await update.message.reply_text("❌ Debes registrarte primero con `/reg nombre.pais`.", parse_mode="Markdown")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "⚠️ Uso: `/setpais pais`\n\n"
+            "Ejemplo: `/setpais mexico`\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
+        return
+
+    pais = context.args[0].lower().strip()
+
+    if not es_pais_valido(pais):
+        await update.message.reply_text(
+            f"❌ País no válido: *{pais}*\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
+        return
+
+    set_pais(user_id, pais)
+    await update.message.reply_text(
+        f"✅ País actualizado a: {obtener_nombre(pais)}",
+        parse_mode="Markdown"
+    )
 
 
 async def unreg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -78,15 +146,9 @@ async def unreg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("ℹ️ Tu sesión ya estaba cerrada.")
         return
 
-    # Guardar confirmación pendiente en context.user_data
-    context.user_data["confirmacion"] = {
-        "accion": "unreg",
-        "inicio": time.time()
-    }
-
+    context.user_data["confirmacion"] = {"accion": "unreg", "inicio": time.time()}
     await update.message.reply_text(
-        "⚠️ *¿Cerrar sesión?*\n"
-        "Responde `.si` o `.no`. Tienes 30 seg.",
+        "⚠️ *¿Cerrar sesión?*\nResponde `.si` o `.no`. Tienes 30 seg.",
         parse_mode="Markdown"
     )
 
@@ -98,14 +160,9 @@ async def deletereg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("❌ No tienes ninguna cuenta registrada.")
         return
 
-    context.user_data["confirmacion"] = {
-        "accion": "deletereg",
-        "inicio": time.time()
-    }
-
+    context.user_data["confirmacion"] = {"accion": "deletereg", "inicio": time.time()}
     await update.message.reply_text(
-        "⚠️ *¿ELIMINAR tu cuenta?*\n"
-        "Responde `.si` o `.no`. Tienes 30 seg.",
+        "⚠️ *¿ELIMINAR tu cuenta?*\nResponde `.si` o `.no`. Tienes 30 seg.",
         parse_mode="Markdown"
     )
 
@@ -127,10 +184,7 @@ async def confirmar_accion(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if accion == "unreg":
             actualizar_sesion(user_id, 0)
             del context.user_data["confirmacion"]
-            await update.message.reply_text(
-                f"👋 Sesión cerrada, *{datos[0]}*.",
-                parse_mode="Markdown"
-            )
+            await update.message.reply_text(f"👋 Sesión cerrada, *{datos[0]}*.", parse_mode="Markdown")
             await notificar_a_todos(context, user_id, f"👋 <b>{datos[0]}</b> cerró sesión.")
             raise ApplicationHandlerStop
 

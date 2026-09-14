@@ -39,7 +39,6 @@ from eventos.reclamar import init_reclamar_db, reclamar
 
 load_dotenv()
 
-# ⚠️ CAMBIO 1: leer el token de una variable de entorno (nube)
 TOKEN = os.getenv("BOT_TOKEN")
 
 COMANDOS_VALIDOS = [
@@ -157,10 +156,13 @@ def main() -> None:
     init_eventos_db()
     init_reclamar_db()
 
-    # ⚠️ CAMBIO 2: sin proxy. La nube conecta directo con Telegram.
+    # Sin proxy: la nube conecta directo con Telegram
     app = Application.builder().token(TOKEN).build()
 
-    if app.job_queue:
+    # JobQueue: revisa timeouts cada X segundos
+    if app.job_queue is None:
+        print("⚠️ ADVERTENCIA: job_queue es None. Revisa que requirements.txt tenga [job-queue]")
+    else:
         app.job_queue.run_repeating(revisar_expiradas, interval=30, first=10)
         app.job_queue.run_repeating(revisar_timeouts_mates, interval=10, first=10)
         app.job_queue.run_repeating(revisar_timeouts_memoria, interval=10, first=10)
@@ -170,20 +172,21 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_eventos_expirados, interval=60, first=30)
         app.job_queue.run_repeating(revisar_eventos_iniciando, interval=30, first=15)
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
+        print("✅ JobQueue configurado con 9 tareas programadas")
 
-    # GRUPO -10
+    # GRUPO -10: bloquear comandos en partida
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos_en_partida),
         group=-10
     )
 
-    # GRUPO -5
+    # GRUPO -5: confirmaciones .si/.no
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"), confirmar_accion),
         group=-5
     )
 
-    # GRUPO -4
+    # GRUPO -4: .comenzar y .cancelar (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"), comenzar),
         group=-4
@@ -193,7 +196,7 @@ def main() -> None:
         group=-4
     )
 
-    # GRUPO -3
+    # GRUPO -3: .asistir y .atras (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[aA][sS][iI][sS][tT][iI][rR]$"), asistir),
         group=-3
@@ -203,17 +206,17 @@ def main() -> None:
         group=-3
     )
 
-    # GRUPO 1-5: minijuegos
+    # GRUPO 1-5: respuestas de minijuegos
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_mates), group=1)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_memoria), group=2)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_trivia), group=3)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_palabras), group=4)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_funks), group=5)
 
-    # GRUPO 100
+    # GRUPO 100: ver evento (.nombre)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), ver_evento), group=100)
 
-    # GRUPO 200
+    # GRUPO 200: verificar registro
     app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=200)
 
     # Comandos de usuario

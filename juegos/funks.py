@@ -18,7 +18,7 @@ CANCIONES_POR_PARTIDA = 3
 # (letra, nombre, autores)
 FUNKS = [
     ("Na festa do fim de semana, sahur chegou", "passo bem solto", "atlxs"),
-    ("Vida la vida es un carrusel", "montangem tomada", "josh gomez"),
+    ("Vida la vida es un carrusel", "montagem tomada", "josh gomez"),
     ("A mira la luna, lalalalalalala", "luna bala", "yb wasg'ood, ariis, mc pr"),
     ("Hay mi gatito miau miau", "montagem miau", "evelyn villabona"),
     ("Do Prada, no Prada\nDo pai da acelerada", "acelerada", "mxzi"),

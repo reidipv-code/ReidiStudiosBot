@@ -1,13 +1,10 @@
 import sqlite3
 import random
 import time
-import os
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 
 APUESTA_MIN = 10
 APUESTA_MAX = 500

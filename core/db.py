@@ -20,6 +20,11 @@ def init_db():
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    # Añadir columna pais si no existe
+    try:
+        c.execute("ALTER TABLE usuarios ADD COLUMN pais TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -81,15 +86,15 @@ def siguiente_id_libre():
     return n
 
 
-def registrar(user_id, username, nombre):
+def registrar(user_id, username, nombre, pais=None):
     id_interno = siguiente_id_libre()
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute(
         "INSERT OR REPLACE INTO usuarios "
-        "(user_id, username, nombre, id_interno, tokens, xp, nivel, sesion_activa) "
-        "VALUES (?, ?, ?, ?, 100, 0, 1, 1)",
-        (user_id, username, nombre, id_interno)
+        "(user_id, username, nombre, id_interno, tokens, xp, nivel, sesion_activa, pais) "
+        "VALUES (?, ?, ?, ?, 100, 0, 1, 1, ?)",
+        (user_id, username, nombre, id_interno, pais)
     )
     conn.commit()
     conn.close()
@@ -210,3 +215,28 @@ def barra_progreso(xp, nivel):
     bloques = int(porcentaje / 5)
     barra = "█" * bloques + "░" * (20 - bloques)
     return f"[{barra}] {porcentaje}%"
+
+
+# ============================================================
+# FUNCIONES DE PAÍS
+# ============================================================
+def obtener_pais(user_id):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT pais FROM usuarios WHERE user_id = ?", (user_id,))
+    r = c.fetchone()
+    conn.close()
+    return r[0] if r else None
+
+
+def set_pais(user_id, pais):
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("UPDATE usuarios SET pais = ? WHERE user_id = ?", (pais, user_id))
+    conn.commit()
+    conn.close()
+
+
+def usuario_tiene_pais(user_id):
+    pais = obtener_pais(user_id)
+    return pais is not None and pais != ""

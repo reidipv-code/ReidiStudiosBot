@@ -170,10 +170,8 @@ def main() -> None:
     init_eventos_db()
     init_reclamar_db()
 
-    # Sin proxy: la nube conecta directo con Telegram
     app = Application.builder().token(TOKEN).build()
 
-    # JobQueue: revisa timeouts cada X segundos
     if app.job_queue is None:
         print("⚠️ ADVERTENCIA: job_queue es None. Revisa requirements.txt tenga [job-queue]")
     else:
@@ -188,19 +186,16 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
         print("✅ JobQueue configurado con 9 tareas programadas")
 
-    # GRUPO -10: bloquear comandos en partida
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos_en_partida),
         group=-10
     )
 
-    # GRUPO -5: confirmaciones .si/.no
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"), confirmar_accion),
         group=-5
     )
 
-    # GRUPO -4: .comenzar y .cancelar (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"), comenzar),
         group=-4
@@ -210,7 +205,6 @@ def main() -> None:
         group=-4
     )
 
-    # GRUPO -3: .asistir y .atras (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[aA][sS][iI][sS][tT][iI][rR]$"), asistir),
         group=-3
@@ -220,20 +214,16 @@ def main() -> None:
         group=-3
     )
 
-    # GRUPO 0: verificar registro (ANTES de los comandos)
     app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=0)
 
-    # GRUPO 5-9: respuestas de minijuegos
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_mates), group=5)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_memoria), group=6)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_trivia), group=7)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_palabras), group=8)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_funks), group=9)
 
-    # GRUPO 100: ver evento (.nombre)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), ver_evento), group=100)
 
-    # GRUPO 10: TODOS los comandos
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)

@@ -66,8 +66,14 @@ def formatear_tiempo(seg):
 
 def normalizar(texto):
     texto = texto.lower().strip()
-    for k, v in {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "à": "a", "è": "e", "ì": "i", "ò": "o", "ù": "u", "ä": "a", "ë": "e", "ï": "i", "ö": "o", "ü": "u", "ñ": "n"}.items():
+    for k, v in {"á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u",
+                 "à": "a", "è": "e", "ì": "i", "ò": "o", "ù": "u",
+                 "ä": "a", "ë": "e", "ï": "i", "ö": "o", "ü": "u",
+                 "ñ": "n"}.items():
         texto = texto.replace(k, v)
+    for signo in [".", ",", ";", ":", "!", "?", "¡", "¿", "\"", "'"]:
+        texto = texto.replace(signo, "")
+    texto = " ".join(texto.split())
     return texto
 
 

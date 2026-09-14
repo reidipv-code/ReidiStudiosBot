@@ -1,7 +1,8 @@
+```python
 import sqlite3
-import os
 
-DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
+from core.db import DB_PATH
+
 
 PALABRAS_PROHIBIDAS = [
     "puta", "puto", "put@", "put4", "culo", "pinga", "mierda",
@@ -42,12 +43,15 @@ def longitud_valida(nombre):
 def nombre_ya_existe(nombre):
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+
     c.execute(
         "SELECT user_id FROM usuarios WHERE LOWER(nombre) = LOWER(?)",
         (nombre,)
     )
+
     r = c.fetchone()
     conn.close()
+
     return r is not None
 
 
@@ -58,19 +62,30 @@ def validar_nombre(nombre):
         return False, "❌ El nombre debe tener entre *2* y *25* caracteres."
 
     if tiene_espacios(nombre):
-        return False, "❌ El nombre no puede tener espacios.\nPrueba con algo como `OriGamePlay67`."
+        return False, (
+            "❌ El nombre no puede tener espacios.\n"
+            "Prueba con algo como `OriGamePlay67`."
+        )
 
     if tiene_caracteres_invalidos(nombre):
-        return False, "❌ El nombre solo puede tener *letras* y *números*.\nNo se permiten símbolos ni espacios."
+        return False, (
+            "❌ El nombre solo puede tener *letras* y *números*.\n"
+            "No se permiten símbolos ni espacios."
+        )
 
     if es_palabra_prohibida(nombre):
-        return False, "🚫 Ese nombre no está permitido.\nPor favor elige otro."
+        return False, (
+            "🚫 Ese nombre no está permitido.\n"
+            "Por favor elige otro."
+        )
 
     if nombre_ya_existe(nombre):
         return False, (
             f"⚠️ El nombre *{nombre}* ya está en uso.\n\n"
-            "Los nombres son únicos (no importa si usas mayúsculas o minúsculas).\n"
+            "Los nombres son únicos (no importa si usas mayúsculas "
+            "o minúsculas).\n"
             f"Prueba con otro, por ejemplo: `{nombre}2` o `{nombre}X`."
         )
 
     return True, ""
+```

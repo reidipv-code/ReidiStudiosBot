@@ -1,4 +1,3 @@
-```python
 import time
 
 from telegram import Update

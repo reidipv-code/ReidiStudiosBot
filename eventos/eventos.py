@@ -6,9 +6,9 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, obtener_todos_los_usuarios, actualizar_tokens, sumar_xp
+from core.db import obtener_datos, obtener_todos_los_usuarios
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
+DB_PATH = os.path.expanduser("~/telegram_bot/usuarios.db")
 
 COOLDOWN_NORMAL = 10 * 60 * 60
 COOLDOWN_EXPIRADO = 1 * 60 * 60
@@ -61,12 +61,19 @@ def es_admin(user_id):
 
 
 def parsear_fecha(fecha_str):
-    for fmt in ("%d/%m/%y", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(fecha_str, fmt)
-        except ValueError:
-            continue
-    return None
+    """Acepta dd/mm/aa o dd/mm/aaaa, con o sin ceros a la izquierda."""
+    partes = fecha_str.strip().split("/")
+    if len(partes) != 3:
+        return None
+    try:
+        dia = int(partes[0])
+        mes = int(partes[1])
+        anio = int(partes[2])
+        if anio < 100:
+            anio += 2000
+        return datetime(anio, mes, dia)
+    except ValueError:
+        return None
 
 
 def combinar_fecha_hora(fecha_str, hora_str):
@@ -74,7 +81,7 @@ def combinar_fecha_hora(fecha_str, hora_str):
     if dt_fecha is None:
         return None
     try:
-        dt_hora = datetime.strptime(hora_str, "%H:%M")
+        dt_hora = datetime.strptime(hora_str.strip(), "%H:%M")
     except ValueError:
         return None
     return dt_fecha.replace(hour=dt_hora.hour, minute=dt_hora.minute)
@@ -214,10 +221,6 @@ async def ver_evento(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     busqueda = texto[1:].strip()
     if not busqueda:
-        return
-
-    # ⚠️ Si es un número (ej. .177), no es un evento → ignorar
-    if busqueda.isdigit():
         return
 
     evento = obtener_evento_por_nombre_o_id(busqueda)

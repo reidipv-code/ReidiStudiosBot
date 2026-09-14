@@ -69,8 +69,8 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
         else:
-            # Reactivar sesión + actualizar país si no tiene
-            set_pais(user_id, pais)
+            if not usuario_tiene_pais(user_id):
+                set_pais(user_id, pais)
             actualizar_sesion(user_id, 1)
             await update.message.reply_text(
                 f"✅ ¡Bienvenido de vuelta, *{datos[0]}*!\n"
@@ -106,6 +106,15 @@ async def setpais(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not esta_registrado(user_id):
         await update.message.reply_text("❌ Debes registrarte primero con `/reg nombre.pais`.", parse_mode="Markdown")
+        return
+
+    if usuario_tiene_pais(user_id):
+        await update.message.reply_text(
+            "⚠️ *Ya tienes un país configurado.*\n\n"
+            "El comando `/setpais` solo se puede usar *una vez*.\n"
+            "Si necesitas cambiarlo, contacta a un admin.",
+            parse_mode="Markdown"
+        )
         return
 
     if not context.args:

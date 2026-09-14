@@ -1,14 +1,11 @@
 import sqlite3
 import random
 import time
-import os
 from telegram import Update
 from telegram.ext import ContextTypes, ApplicationHandlerStop
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp
+from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
-
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "usuarios.db")
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
@@ -22,7 +19,7 @@ FUNKS = [
     ("A mira la luna, lalalalalalala", "luna bala", "yb wasg'ood, ariis, mc pr"),
     ("Hay mi gatito miau miau", "montagem miau", "evelyn villabona"),
     ("Do Prada, no Prada\nDo pai da acelerada", "acelerada", "mxzi"),
-    ("Clima perfeito, noite enluarada", "montangem bailao", "atlxs, mc jhey"),
+    ("Clima perfeito, noite enluarada", "montagem bailao", "atlxs, mc jhey"),
     ("E-Ela desce, ela sobe, no baile e pressao", "no batidao", "zxkai"),
     ("Please, Speed, I need this, my mom", "kinda homeless", "anitor, hugeboy, vlxnor"),
     ("Quando essa tocar, tu vai se lembrar\nDe que eu era um bosta e tu nao queria me pegar", "yara yara", "mc wm, mc lan"),

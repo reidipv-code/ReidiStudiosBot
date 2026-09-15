@@ -43,7 +43,6 @@ def construir_etiqueta(nombre, pais):
 
 
 async def nuevo_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Cuando alguien ENTRA al grupo (new_chat_member)."""
     print(f"[CHAT] nuevo_miembro disparado")
 
     if not update.message or not update.message.new_chat_members:
@@ -97,7 +96,6 @@ async def nuevo_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def salio_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Cuando alguien SALE del grupo (left_chat_member)."""
     print(f"[CHAT] salio_miembro disparado")
 
     if not update.message or not update.message.left_chat_member:
@@ -166,19 +164,14 @@ async def poner_etiquetas_manual(update: Update, context: ContextTypes.DEFAULT_T
 def crear_app():
     app = Application.builder().token(TOKEN).build()
 
-    # Alguien ENTRA al grupo
     app.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, nuevo_miembro),
         group=0
     )
-
-    # Alguien SALE del grupo
     app.add_handler(
         MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, salio_miembro),
         group=1
     )
-
-    # Comando /etiquetas
     app.add_handler(
         CommandHandler("etiquetas", poner_etiquetas_manual),
         group=2
@@ -192,7 +185,6 @@ async def iniciar_chat_bot():
     print("Bot del chat corriendo...")
     await app.initialize()
     await app.updater.start_polling(
-        allowed_updates=["message", "my_chat_member"],
-        drop_pending_updates=True
+        allowed_updates=["message", "new_chat_member", "left_chat_member"]
     )
     await app.start()

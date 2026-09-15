@@ -1,18 +1,21 @@
 import sqlite3
 import re
+from zoneinfo import ZoneInfo
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.config import formatear_fecha as _formatear_fecha
+from core.config import formatear_fecha as _formatear_fecha, ahora
 from core.db import (
     obtener_user_id_por_nombre,
     obtener_datos,
     actualizar_tokens,
     sumar_xp,
     obtener_todos_los_usuarios,
+    obtener_pais,
     DB_PATH,
 )
+from core.paises import obtener_zona
 
 ADMINS = [7669914531]
 
@@ -48,6 +51,14 @@ def convertir_formato(texto: str) -> str:
         texto = texto.replace(f"@@MONO{i}@@", f"<code>{contenido}</code>")
 
     return texto
+
+
+def fecha_para_usuario(user_id) -> str:
+    """Devuelve la hora actual en la zona horaria del usuario."""
+    pais = obtener_pais(user_id)
+    zona_nombre = obtener_zona(pais) if pais else "America/Havana"
+    hora_local = ahora().astimezone(ZoneInfo(zona_nombre))
+    return hora_local.strftime("%d/%m/%Y - %H:%M")
 
 
 TIPOS_ANUNCIO = {
@@ -104,6 +115,7 @@ async def anunciar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ Debes escribir el mensaje después del tipo.")
         return
 
+    # ─── Modo DM ───────────────────────────────────────────
     if tipo == "dm":
         if len(resto) < 2:
             await update.message.reply_text(
@@ -128,7 +140,7 @@ async def anunciar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         texto_final = (
             f"{emoji} <b>{etiqueta}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"📅 {_formatear_fecha()}\n"
+            f"📅 {fecha_para_usuario(destino_id)}\n"
             f"━━━━━━━━━━━━━━━━━━━\n\n"
             f"{mensaje_fmt}"
         )
@@ -140,6 +152,7 @@ async def anunciar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text(f"❌ No se pudo enviar: {e}")
         return
 
+    # ─── Modo global ───────────────────────────────────────
     if tipo is not None:
         emoji, etiqueta = TIPOS_ANUNCIO[tipo]
     else:
@@ -147,20 +160,21 @@ async def anunciar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     mensaje = " ".join(resto).strip()
     mensaje_fmt = convertir_formato(mensaje)
-    texto_final = (
-        f"{emoji} <b>{etiqueta}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"📅 {_formatear_fecha()}\n"
-        f"━━━━━━━━━━━━━━━━━━━\n\n"
-        f"{mensaje_fmt}"
-    )
 
     ids = obtener_todos_los_usuarios()
     enviados, fallidos = 0, 0
 
     for uid in ids:
         try:
-            await context.bot.send_message(chat_id=uid, text=texto_final, parse_mode="HTML")
+            # Hora personalizada para CADA usuario
+            texto_personalizado = (
+                f"{emoji} <b>{etiqueta}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"📅 {fecha_para_usuario(uid)}\n"
+                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                f"{mensaje_fmt}"
+            )
+            await context.bot.send_message(chat_id=uid, text=texto_personalizado, parse_mode="HTML")
             enviados += 1
         except Exception:
             fallidos += 1

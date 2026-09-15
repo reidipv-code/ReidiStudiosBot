@@ -7,6 +7,7 @@ from telegram.ext import (
     Application,
     ContextTypes,
     MessageHandler,
+    ChatMemberHandler,
     ApplicationHandlerStop,
     CommandHandler,
     filters
@@ -42,9 +43,31 @@ def construir_etiqueta(nombre, pais):
     return etiqueta[:16]
 
 
-async def nuevo_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print(f"[CHAT] nuevo_miembro disparado")
+async def on_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Evento nuevo chat_member (si llega)."""
+    print(f"[CHAT] on_chat_member disparado")
+    if not update.chat_member:
+        return
 
+    chat = update.chat_member.chat
+    if chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    user = update.chat_member.new_chat_member.user
+    user_id = user.id
+    if user.is_bot:
+        return
+
+    viejo = update.chat_member.old_chat_member.status
+    nuevo = update.chat_member.new_chat_member.status
+
+    print(f"[CHAT] Evento: user={user_id} viejo={viejo} nuevo={nuevo}")
+    await procesar_cambio(update, context, chat, user, viejo, nuevo)
+
+
+async def nuevo_miembro_msg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Evento viejo: alguien entró (new_chat_members dentro del mensaje)."""
+    print(f"[CHAT] nuevo_miembro_msg disparado")
     if not update.message or not update.message.new_chat_members:
         return
 
@@ -53,13 +76,33 @@ async def nuevo_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     for user in update.message.new_chat_members:
-        user_id = user.id
-
         if user.is_bot:
             continue
+        await procesar_cambio(update, context, chat, user, "left", "member")
 
-        print(f"[CHAT] Entró: {user_id} ({user.full_name})")
 
+async def salio_miembro_msg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Evento viejo: alguien salió (left_chat_member dentro del mensaje)."""
+    print(f"[CHAT] salio_miembro_msg disparado")
+    if not update.message or not update.message.left_chat_member:
+        return
+
+    chat = update.message.chat
+    if chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    user = update.message.left_chat_member
+    if user.is_bot:
+        return
+
+    await quitar_etiqueta(context, chat.id, user.id)
+
+
+async def procesar_cambio(update, context, chat, user, viejo, nuevo):
+    """Aplica la lógica cuando alguien entra o sale."""
+    user_id = user.id
+
+    if viejo in ("left", "kicked") and nuevo in ("member", "administrator", "creator"):
         nombre, pais = obtener_datos_usuario(user_id)
 
         if nombre is None:
@@ -94,29 +137,15 @@ async def nuevo_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             except Exception:
                 pass
 
+    elif viejo in ("member", "administrator", "creator") and nuevo in ("left", "kicked"):
+        await quitar_etiqueta(context, chat.id, user_id)
 
-async def salio_miembro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    print(f"[CHAT] salio_miembro disparado")
 
-    if not update.message or not update.message.left_chat_member:
-        return
-
-    chat = update.message.chat
-    if chat.id != CHAT_MUNDIAL_ID:
-        return
-
-    user = update.message.left_chat_member
-    if user.is_bot:
-        return
-
-    print(f"[CHAT] Salió: {user.id} ({user.full_name})")
-
+async def quitar_etiqueta(context, chat_id, user_id):
     try:
-        await context.bot.set_chat_member_tag(
-            chat_id=chat.id, user_id=user.id, tag=""
-        )
-    except Exception:
-        pass
+        await context.bot.set_chat_member_tag(chat_id=chat_id, user_id=user_id, tag="")
+    except Exception as e:
+        print(f"[CHAT] Error quitando etiqueta: {e}")
 
 
 async def poner_etiquetas_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -161,20 +190,56 @@ async def poner_etiquetas_manual(update: Update, context: ContextTypes.DEFAULT_T
     await update.message.reply_text(f"Puestas: {puestos} Fallidas: {fallidos}")
 
 
+async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.message.text:
+        return
+
+    if update.effective_chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    texto = update.message.text.strip()
+
+    if texto.startswith("/etiquetas"):
+        return
+
+    if texto.startswith("/"):
+        await update.message.reply_text(
+            "Los comandos solo funcionan en privado con @ReidiStudiosBot."
+        )
+        raise ApplicationHandlerStop
+
+
 def crear_app():
     app = Application.builder().token(TOKEN).build()
 
+    # Evento NUEVO chat_member (si Telegram lo envía)
     app.add_handler(
-        MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, nuevo_miembro),
+        ChatMemberHandler(on_chat_member, ChatMemberHandler.CHAT_MEMBER),
         group=0
     )
+
+    # Evento VIEJO: alguien entró
     app.add_handler(
-        MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, salio_miembro),
+        MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, nuevo_miembro_msg),
         group=1
     )
+
+    # Evento VIEJO: alguien salió
+    app.add_handler(
+        MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, salio_miembro_msg),
+        group=2
+    )
+
+    # Comando /etiquetas
     app.add_handler(
         CommandHandler("etiquetas", poner_etiquetas_manual),
-        group=2
+        group=3
+    )
+
+    # Bloquear comandos en el grupo
+    app.add_handler(
+        MessageHandler(filters.ALL, bloquear_comandos),
+        group=4
     )
 
     return app
@@ -185,6 +250,10 @@ async def iniciar_chat_bot():
     print("Bot del chat corriendo...")
     await app.initialize()
     await app.updater.start_polling(
-        allowed_updates=["message", "new_chat_member", "left_chat_member"]
+        allowed_updates=[
+            "message",
+            "chat_member",
+            "my_chat_member",
+        ]
     )
     await app.start()

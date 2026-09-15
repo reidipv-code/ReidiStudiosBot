@@ -190,5 +190,8 @@ async def iniciar_chat_bot():
     app = crear_app()
     print("✅ Bot del chat corriendo...")
     await app.initialize()
-    await app.updater.start_polling(allowed_updates=["message", "chat_member"])
+    await app.updater.start_polling(
+        allowed_updates=["message", "chat_member", "my_chat_member"],
+        drop_pending_updates=True
+    )
     await app.start()

@@ -1,10 +1,10 @@
 import sqlite3
 import re
-from datetime import datetime
 
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from core.config import formatear_fecha as _formatear_fecha
 from core.db import (
     obtener_user_id_por_nombre,
     obtener_datos,
@@ -48,10 +48,6 @@ def convertir_formato(texto: str) -> str:
         texto = texto.replace(f"@@MONO{i}@@", f"<code>{contenido}</code>")
 
     return texto
-
-
-def _formatear_fecha() -> str:
-    return datetime.now().strftime("%d/%m/%Y - %H:%M")
 
 
 TIPOS_ANUNCIO = {

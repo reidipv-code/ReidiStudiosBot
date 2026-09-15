@@ -6,7 +6,10 @@ from telegram.ext import (
     filters, ApplicationHandlerStop
 )
 
-from core.db import init_db, esta_registrado, obtener_datos, usuario_tiene_pais
+from core.db import (
+    init_db, esta_registrado, obtener_datos, usuario_tiene_pais,
+    actualizar_ultima_actividad
+)
 from core.sesiones import init_sesiones_db, obtener_juego
 from core.paises import lista_paises_texto
 
@@ -56,6 +59,15 @@ COMANDOS_VALIDOS = [
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
+
+
+async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Guarda la última actividad del usuario en cada mensaje."""
+    if update.effective_user:
+        try:
+            actualizar_ultima_actividad(update.effective_user.id)
+        except Exception:
+            pass
 
 
 async def bloquear_comandos_en_partida(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -191,6 +203,12 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_eventos_iniciando, interval=30, first=15)
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
         print("✅ JobQueue configurado con 9 tareas programadas")
+
+    # GRUPO -100: rastrear actividad (SIEMPRE, antes que todo)
+    app.add_handler(
+        MessageHandler(filters.ALL, rastrear_actividad),
+        group=-100
+    )
 
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos_en_partida),

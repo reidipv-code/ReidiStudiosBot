@@ -1,1 +1,1 @@
-web: python bot_railway.py
+web: python start.py

@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 from core.db import (
     esta_registrado, obtener_datos, obtener_lista_usuarios,
     xp_total_para_nivel, rango_por_nivel, barra_progreso,
-    obtener_pais, obtener_user_id_por_nombre
+    obtener_pais, obtener_user_id_por_nombre, esta_online
 )
 from core.paises import obtener_nombre as nombre_pais, obtener_bandera
 
@@ -42,13 +42,16 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             linea_pais = "🌎 País: *No configurado*"
 
+        estado = "🟢 Online" if esta_online(otro_id) else "⚫ Offline"
+
         await update.message.reply_text(
             f"👤 *PERFIL DE {nombre.upper()}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 ID: *#{id_interno}*\n"
             f"{linea_pais}\n"
             f"🎖️ Rango: {rango_por_nivel(nivel)}\n"
-            f"⭐ Nivel: *{nivel}*",
+            f"⭐ Nivel: *{nivel}*\n"
+            f"{estado}",
             parse_mode="Markdown"
         )
         return
@@ -67,6 +70,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         linea_pais = "\n🌎 País: *No configurado*"
 
+    estado = "🟢 Online" if esta_online(user_id) else "⚫ Offline"
+
     await update.message.reply_text(
         f"👤 *{nombre.upper()}*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
@@ -77,7 +82,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"✨ XP: {xp}/{xp_siguiente}\n"
         f"📊 {barra}\n"
         f"💰 {tokens} tokens"
-        f"{linea_pais}",
+        f"{linea_pais}\n"
+        f"{estado}",
         parse_mode="Markdown"
     )
 

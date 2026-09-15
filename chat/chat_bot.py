@@ -1,4 +1,4 @@
-import sqlite3
+iimport sqlite3
 from dotenv import load_dotenv
 import os
 
@@ -9,6 +9,7 @@ from telegram.ext import (
     MessageHandler,
     ChatMemberHandler,
     ApplicationHandlerStop,
+    CommandHandler,
     filters
 )
 
@@ -18,6 +19,105 @@ load_dotenv()
 
 TOKEN = os.getenv("CHAT_BOT_TOKEN")
 CHAT_MUNDIAL_ID = -1003922399103
+ADMIN_ID = 7669914531
+
+
+def obtener_datos_usuario(user_id):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT nombre, pais FROM usuarios WHERE user_id = ?", (user_id,))
+        r = c.fetchone()
+        conn.close()
+        return (r[0], r[1]) if r else (None, None)
+    except Exception as e:
+        print(f"[CHAT] Error BD: {e}")
+        return (None, None)
+
+
+def construir_etiqueta(nombre, pais):
+    if not nombre or not pais:
+        return ""
+    codigo = pais.upper()[:3]
+    etiqueta = f"[{codigo}] {nombre}"
+    return etiqueta[:16]
+
+
+async def on_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.chat_member:
+        return
+
+    chat = update.chat_member.chat
+    if chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    user = update.chat_member.new_chat_member.user
+    user_id = user.id
+
+    if user.is_bot:
+        return
+
+    viejo = update.chat_member.old_chat_member.status
+    nuevo = update.chat_member.new_chat_member.status
+
+    print(f"[CHAT] Evento: user={user_id} viejo={viejo} nuevo={nuevo}")
+
+    if viejo in ("left", "kicked") and nuevo in ("member", "administrator", "creator"):
+        nombre, pais = obtener_datos_usuario(user_id)
+
+        if nombre is None:
+            try:
+                await context.bot.ban_chat_member(chat_id=chat.id, user_id=user_id)
+                await context.bot.unban_chat_member(chat_id=chat.id, user_id=user_id)
+                print(f"[CHAT] Expulsado {user_id} - no registrado")
+            except Exception as e:
+                print(f"[CHAT] Error al expulsar: {e}")
+            raise ApplicationHandlerStop
+        else:
+            etiqueta = construir_etiqueta(nombre, pais)
+            if etiqueta:
+                try:
+                    await context.bot.set_chat_member_tag(
+                        chat_id=chat.id, user_id=user_id, tag=etiqueta
+                    )
+                    print(f"[CHAT] Etiqueta puesta a {user_id}: {etiqueta}")
+                except Exception as e:
+                    print(f"[CHAT] Error etiqueta: {e}")
+
+            try:
+                await context.bot.send_message(
+                    chat_id=chat.id,
+                    text=f"👋 Bienvenido/a *{nombre}* ({pais.upper()})",
+                    parse_mode="Markdown"
+                )
+            except Exception:
+                pass
+
+    elif viejo in ("member", "administrator", "creator") and nuevo in ("left", "kicked"):
+        try:
+            await context.bot.set_chat_member_tag(
+                chat_id=chat.import sqlite3
+from dotenv import load_dotenv
+import os
+
+from telegram import Update
+from telegram.ext import (
+    Application,
+    ContextTypes,
+    MessageHandler,
+    ChatMemberHandler,
+    ApplicationHandlerStop,
+    CommandHandler,
+    filters
+)
+
+from core.db import DB_PATH
+
+load_dotenv()
+
+TOKEN = os.getenv("CHAT_BOT_TOKEN")
+CHAT_MUNDIAL_ID = -1003922399103
+ADMIN_ID = 7669914531
 
 
 def obtener_datos_usuario(user_id):
@@ -100,6 +200,54 @@ async def on_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             pass
 
 
+async def poner_etiquetas_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/etiquetas — pone etiqueta a todos los admins/miembros del grupo (solo admin)."""
+    if update.effective_chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ Solo el admin puede usar este comando.")
+        return
+
+    await update.message.reply_text("⏳ Poniendo etiquetas...")
+
+    puestos = 0
+    fallidos = 0
+
+    try:
+        admins = await context.bot.get_chat_administrators(chat_id=CHAT_MUNDIAL_ID)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error obteniendo miembros: {e}")
+        return
+
+    for miembro in admins:
+        uid = miembro.user.id
+        if miembro.user.is_bot:
+            continue
+
+        nombre, pais = obtener_datos_usuario(uid)
+        if nombre is None:
+            print(f"[CHAT] {uid} no registrado - se ignora")
+            continue
+
+        etiqueta = construir_etiqueta(nombre, pais)
+        try:
+            await context.bot.set_chat_member_tag(
+                chat_id=CHAT_MUNDIAL_ID, user_id=uid, tag=etiqueta
+            )
+            puestos += 1
+            print(f"[CHAT] Etiqueta manual a {uid}: {etiqueta}")
+        except Exception as e:
+            fallidos += 1
+            print(f"[CHAT] Error manual a {uid}: {e}")
+
+    await update.message.reply_text(
+        f"✅ Etiquetas puestas: {puestos}\n❌ Fallidos: {fallidos}\n\n"
+        f"⚠️ Nota: solo se pueden poner etiquetas a admins del grupo. "
+        f"Los miembros normales no aparecen en esta lista."
+    )
+
+
 async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message or not update.message.text:
         return
@@ -108,6 +256,9 @@ async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     texto = update.message.text.strip()
+
+    if texto.startswith("/etiquetas"):
+        return
 
     if texto.startswith("/"):
         await update.message.reply_text(
@@ -125,8 +276,12 @@ def crear_app():
         group=0
     )
     app.add_handler(
-        MessageHandler(filters.ALL, bloquear_comandos),
+        CommandHandler("etiquetas", poner_etiquetas_manual),
         group=1
+    )
+    app.add_handler(
+        MessageHandler(filters.ALL, bloquear_comandos),
+        group=2
     )
 
     return app
@@ -137,7 +292,105 @@ async def iniciar_chat_bot():
     print("✅ Bot del chat corriendo...")
     await app.initialize()
     await app.updater.start_polling(allowed_updates=["message", "chat_member"])
-    await app.start()Enterimport sqlite3
+    await app.start()Enterid, user_id=user_id, tag=""
+            )
+        except Exception:
+            pass
+
+
+async def poner_etiquetas_manual(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/etiquetas — pone etiqueta a todos los admins/miembros del grupo (solo admin)."""
+    if update.effective_chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ Solo el admin puede usar este comando.")
+        return
+
+    await update.message.reply_text("⏳ Poniendo etiquetas...")
+
+    puestos = 0
+    fallidos = 0
+
+    try:
+        admins = await context.bot.get_chat_administrators(chat_id=CHAT_MUNDIAL_ID)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error obteniendo miembros: {e}")
+        return
+
+    for miembro in admins:
+        uid = miembro.user.id
+        if miembro.user.is_bot:
+            continue
+
+        nombre, pais = obtener_datos_usuario(uid)
+        if nombre is None:
+            print(f"[CHAT] {uid} no registrado - se ignora")
+            continue
+
+        etiqueta = construir_etiqueta(nombre, pais)
+        try:
+            await context.bot.set_chat_member_tag(
+                chat_id=CHAT_MUNDIAL_ID, user_id=uid, tag=etiqueta
+            )
+            puestos += 1
+            print(f"[CHAT] Etiqueta manual a {uid}: {etiqueta}")
+        except Exception as e:
+            fallidos += 1
+            print(f"[CHAT] Error manual a {uid}: {e}")
+
+    await update.message.reply_text(
+        f"✅ Etiquetas puestas: {puestos}\n❌ Fallidos: {fallidos}\n\n"
+        f"⚠️ Nota: solo se pueden poner etiquetas a admins del grupo. "
+        f"Los miembros normales no aparecen en esta lista."
+    )
+
+
+async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.message.text:
+        return
+
+    if update.effective_chat.id != CHAT_MUNDIAL_ID:
+        return
+
+    texto = update.message.text.strip()
+
+    if texto.startswith("/etiquetas"):
+        return
+
+    if texto.startswith("/"):
+        await update.message.reply_text(
+            "⚠️ Los comandos solo funcionan en privado con @ReidiStudiosBot.",
+            parse_mode="Markdown"
+        )
+        raise ApplicationHandlerStop
+
+
+def crear_app():
+    app = Application.builder().token(TOKEN).build()
+
+    app.add_handler(
+        ChatMemberHandler(on_chat_member, ChatMemberHandler.CHAT_MEMBER),
+        group=0
+    )
+    app.add_handler(
+        CommandHandler("etiquetas", poner_etiquetas_manual),
+        group=1
+    )
+    app.add_handler(
+        MessageHandler(filters.ALL, bloquear_comandos),
+        group=2
+    )
+
+    return app
+
+
+async def iniciar_chat_bot():
+    app = crear_app()
+    print("✅ Bot del chat corriendo...")
+    await app.initialize()
+    await app.updater.start_polling(allowed_updates=["message", "chat_member"])
+    await app.start()Entermport sqlite3
 from dotenv import load_dotenv
 import os
 
@@ -148,6 +401,7 @@ from telegram.ext import (
     MessageHandler,
     ChatMemberHandler,
     ApplicationHandlerStop,
+    CommandHandler,
     filters
 )
 
@@ -157,6 +411,7 @@ load_dotenv()
 
 TOKEN = os.getenv("CHAT_BOT_TOKEN")
 CHAT_MUNDIAL_ID = -1003922399103
+ADMIN_ID = 7669914531
 
 
 def obtener_datos_usuario(user_id):
@@ -233,48 +488,3 @@ async def on_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif viejo in ("member", "administrator", "creator") and nuevo in ("left", "kicked"):
         try:
             await context.bot.set_chat_member_tag(
-                chat_id=chat.id, user_id=user_id, tag=""
-            )
-        except Exception:
-            pass
-
-
-async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message or not update.message.text:
-        return
-
-    if update.effective_chat.id != CHAT_MUNDIAL_ID:
-        return
-
-    texto = update.message.text.strip()
-
-    if texto.startswith("/"):
-        await update.message.reply_text(
-            "⚠️ Los comandos solo funcionan en privado con @ReidiStudiosBot.",
-            parse_mode="Markdown"
-        )
-        raise ApplicationHandlerStop
-
-
-def crear_app():
-    app = Application.builder().token(TOKEN).build()
-
-    app.add_handler(
-        ChatMemberHandler(on_chat_member, ChatMemberHandler.CHAT_MEMBER),
-        group=0
-    )
-    app.add_handler(
-        MessageHandler(filters.ALL, bloquear_comandos),
-        group=1
-    )
-
-    return app
-
-
-async def iniciar_chat_bot():
-    app = crear_app()
-    print("✅ Bot del chat corriendo...")
-    await app.initialize()
-    await app.updater.start_polling(allowed_updates=["message", "chat_member"])
-    await app.start()Enter)
-    await app.start()

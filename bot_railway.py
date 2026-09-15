@@ -13,6 +13,7 @@ from core.paises import lista_paises_texto
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
+from comandos.chat import chatm, msp
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -51,7 +52,7 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais"
+    "/setpais", "/chatm", "/msp"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -97,6 +98,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/reclamar - Recompensa diaria\n"
         "/eventos - Ver eventos\n"
         "/actividades - Menú de juegos\n"
+        "/chatm - Ir al chat mundial\n"
         "/tutorial - Guía completa"
     )
 
@@ -106,7 +108,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "📋 *Comandos básicos:*\n"
         "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
         "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
-        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n/tutorial\n\n"
+        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
+        "/chatm\n/msp nombre| mensaje\n/tutorial\n\n"
         "🎮 Juegos: /actividades",
         parse_mode="Markdown"
     )
@@ -264,6 +267,9 @@ def main() -> None:
     app.add_handler(CommandHandler("giveXP", giveXP), group=10)
     app.add_handler(CommandHandler("removeTokens", removeTokens), group=10)
     app.add_handler(CommandHandler("removeXP", removeXP), group=10)
+
+    app.add_handler(CommandHandler("chatm", chatm), group=10)
+    app.add_handler(CommandHandler("msp", msp), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

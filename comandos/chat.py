@@ -3,11 +3,15 @@ from telegram.ext import ContextTypes
 
 from core.db import (
     esta_registrado,
+    obtener_datos,
     obtener_user_id_por_nombre,
+    obtener_pais,
 )
+from core.paises import obtener_nombre as nombre_pais, obtener_bandera
+
 
 # Enlace al grupo del chat mundial
-CHAT_MUNDIAL_URL = "https://t.me/+pUmtMdKAkM8zMjFh "
+CHAT_MUNDIAL_URL = "https://t.me/+XXXXXXXXXXXXXXXX"
 
 
 async def chatm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -34,7 +38,7 @@ async def chatm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     /msp nombre| mensaje
-    Envía un mensaje privado al usuario con ese nombre.
+    Envía un mensaje privado al usuario, mostrando quién lo manda.
     """
     user_id = update.effective_user.id
 
@@ -63,10 +67,10 @@ async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     partes = texto.split("|", 1)
-    nombre = partes[0].strip()
+    nombre_destino = partes[0].strip()
     mensaje = partes[1].strip()
 
-    if not nombre or not mensaje:
+    if not nombre_destino or not mensaje:
         await update.message.reply_text(
             "⚠️ Debes poner el nombre y el mensaje.\n\n"
             "Ejemplo: `/msp OriGamePlay| Hola`",
@@ -74,25 +78,32 @@ async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    destino_id = obtener_user_id_por_nombre(nombre)
+    destino_id = obtener_user_id_por_nombre(nombre_destino)
 
     if destino_id is None:
         await update.message.reply_text(
-            f"❌ No existe ningún usuario con el nombre *{nombre}*.",
+            f"❌ No existe ningún usuario con el nombre *{nombre_destino}*.",
             parse_mode="Markdown"
         )
         return
 
+    # Datos del que envía
+    datos_envia = obtener_datos(user_id)
+    nombre_envia = datos_envia[0] if datos_envia else "Desconocido"
+    pais_envia = obtener_pais(user_id)
+    bandera_envia = obtener_bandera(pais_envia) if pais_envia else "🌎"
+
+    # Construir el mensaje con el formato: 🇨🇺 OriGamePlay ~ Hola
+    texto_final = f"{bandera_envia} {nombre_envia} ~ {mensaje}"
+
     try:
         await context.bot.send_message(
             chat_id=destino_id,
-            text=(
-                f"📩 *MENSAJE PRIVADO*\n"
-                f"━━━━━━━━━━━━━━━━━━━\n\n"
-                f"{mensaje}"
-            ),
+            text=texto_final
+        )
+        await update.message.reply_text(
+            f"✅ Mensaje enviado a *{nombre_destino}*.",
             parse_mode="Markdown"
         )
-        await update.message.reply_text(f"✅ Mensaje enviado a *{nombre}*.", parse_mode="Markdown")
     except Exception as e:
         await update.message.reply_text(f"❌ No se pudo enviar: {e}")

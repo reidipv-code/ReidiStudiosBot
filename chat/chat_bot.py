@@ -214,10 +214,8 @@ async def bloquear_comandos(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 def crear_app():
     app = Application.builder().token(TOKEN).build()
 
-    # DIAGNÓSTICO: se ejecuta con CUALQUIER update
     app.add_handler(MessageHandler(filters.ALL, diagnostico), group=-100)
 
-    # Procesar entradas y salidas (eventos viejos dentro de message)
     app.add_handler(
         MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, procesar_entrada),
         group=0
@@ -227,19 +225,16 @@ def crear_app():
         group=1
     )
 
-    # Evento nuevo chat_member (por si llega)
     app.add_handler(
         ChatMemberHandler(on_chat_member, ChatMemberHandler.CHAT_MEMBER),
         group=2
     )
 
-    # Comando /etiquetas
     app.add_handler(
         CommandHandler("etiquetas", poner_etiquetas_manual),
         group=3
     )
 
-    # Bloquear comandos en el grupo
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos),
         group=4
@@ -252,7 +247,5 @@ async def iniciar_chat_bot():
     app = crear_app()
     print("Bot del chat corriendo...")
     await app.initialize()
-    await app.updater.start_polling(
-        allowed_updates=["message", "chat_member", "my_chat_member"]
-    )
+    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
     await app.start()

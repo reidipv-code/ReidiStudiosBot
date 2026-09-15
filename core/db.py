@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import time
 
 # Railway inyecta RAILWAY_VOLUME_MOUNT_PATH automáticamente cuando hay un volumen.
 # Si existe, la usamos. Si no, usamos la ruta local (para Termux).
@@ -27,9 +28,12 @@ def init_db():
             fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    # Añadir columna pais si no existe
     try:
         c.execute("ALTER TABLE usuarios ADD COLUMN pais TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE usuarios ADD COLUMN ultima_actividad REAL DEFAULT 0")
     except sqlite3.OperationalError:
         pass
     conn.commit()
@@ -99,9 +103,9 @@ def registrar(user_id, username, nombre, pais=None):
     c = conn.cursor()
     c.execute(
         "INSERT OR REPLACE INTO usuarios "
-        "(user_id, username, nombre, id_interno, tokens, xp, nivel, sesion_activa, pais) "
-        "VALUES (?, ?, ?, ?, 100, 0, 1, 1, ?)",
-        (user_id, username, nombre, id_interno, pais)
+        "(user_id, username, nombre, id_interno, tokens, xp, nivel, sesion_activa, pais, ultima_actividad) "
+        "VALUES (?, ?, ?, ?, 100, 0, 1, 1, ?, ?)",
+        (user_id, username, nombre, id_interno, pais, time.time())
     )
     conn.commit()
     conn.close()
@@ -247,3 +251,36 @@ def set_pais(user_id, pais):
 def usuario_tiene_pais(user_id):
     pais = obtener_pais(user_id)
     return pais is not None and pais != ""
+
+
+# ============================================================
+# ÚLTIMA ACTIVIDAD (Online / Offline)
+# ============================================================
+def actualizar_ultima_actividad(user_id):
+    """Guarda el momento actual como última actividad del usuario."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute(
+        "UPDATE usuarios SET ultima_actividad = ? WHERE user_id = ?",
+        (time.time(), user_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def obtener_ultima_actividad(user_id):
+    """Devuelve el timestamp de la última actividad, o 0 si no hay."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT ultima_actividad FROM usuarios WHERE user_id = ?", (user_id,))
+    r = c.fetchone()
+    conn.close()
+    return r[0] if r and r[0] else 0
+
+
+def esta_online(user_id, minutos=5):
+    """True si el usuario ha interactuado con el bot en los últimos X minutos."""
+    ultima = obtener_ultima_actividad(user_id)
+    if ultima == 0:
+        return False
+    return (time.time() - ultima) < (minutos * 60)

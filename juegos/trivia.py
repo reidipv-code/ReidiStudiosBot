@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.preguntas_trivia import TRIVIA
+from core.preguntas_mundo import MUNDO
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
@@ -16,6 +17,8 @@ CONFIG_DIFICULTAD = {
     "normal":  {"tiempo": 60,  "premio_tokens": 50, "premio_xp": 50},
     "dificil": {"tiempo": 120, "premio_tokens": 80, "premio_xp": 80},
 }
+
+TODAS_CATEGORIAS = {**TRIVIA, **MUNDO}
 
 partidas_trivia = {}
 
@@ -89,14 +92,20 @@ async def trivia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         paises = list(TRIVIA.keys())
+        mundo = list(MUNDO.keys())
+
         texto = (
             "🧠 *TRIVIA DE HISTORIA*\n"
             "━━━━━━━━━━━━━━━━━━━\n"
-            "Preguntas de historia de Latinoamérica.\n\n"
+            "Preguntas de historia de Latinoamérica y del mundo.\n\n"
             "🌎 *Países disponibles:*\n"
         )
         for p in paises:
             texto += f"• `{p}`\n"
+
+        texto += "\n🌍 *Historia Mundial:*\n"
+        for m in mundo:
+            texto += f"• `{m}`\n"
 
         texto += (
             "\n📊 *Dificultades:*\n"
@@ -104,7 +113,8 @@ async def trivia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "• `normal` → 50 tokens + 50 XP (60s)\n"
             "• `dificil` → 80 tokens + 80 XP (120s)\n\n"
             "📝 *Uso:*\n"
-            "`/trivia mexico facil`\n\n"
+            "`/trivia mexico facil`\n"
+            "`/trivia medieval normal`\n\n"
             "📌 *Cómo jugar:*\n"
             "• 5 preguntas por partida\n"
             "• Responde con `.respuesta`\n"
@@ -115,14 +125,14 @@ async def trivia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     if len(context.args) < 2:
-        await update.message.reply_text("⚠️ Uso: `/trivia <pais> <dificultad>`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Uso: `/trivia <categoria> <dificultad>`", parse_mode="Markdown")
         return
 
-    pais = context.args[0].lower().strip()
+    categoria = context.args[0].lower().strip()
     dificultad = normalizar(context.args[1])
 
-    if pais not in TRIVIA:
-        await update.message.reply_text("❌ País no válido. Usa `/trivia` para ver la lista.", parse_mode="Markdown")
+    if categoria not in TODAS_CATEGORIAS:
+        await update.message.reply_text("❌ Categoría no válida. Usa `/trivia` para ver la lista.", parse_mode="Markdown")
         return
 
     if dificultad not in CONFIG_DIFICULTAD:
@@ -134,12 +144,12 @@ async def trivia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"⏳ Espera *{formatear_tiempo(restante)}*.", parse_mode="Markdown")
         return
 
-    preguntas_nivel = TRIVIA[pais][dificultad]
+    preguntas_nivel = TODAS_CATEGORIAS[categoria][dificultad]
     seleccionadas = random.sample(preguntas_nivel, 5)
     config = CONFIG_DIFICULTAD[dificultad]
 
     partidas_trivia[user_id] = {
-        "pais": pais,
+        "categoria": categoria,
         "dificultad": dificultad,
         "config": config,
         "preguntas": seleccionadas,
@@ -151,7 +161,7 @@ async def trivia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     iniciar_partida(user_id, "trivia")
 
     await update.message.reply_text(
-        f"🧠 *Trivia de {pais.capitalize()} - {dificultad.capitalize()}*\n"
+        f"🧠 *Trivia de {categoria.capitalize()} - {dificultad.capitalize()}*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"⏱️ {config['tiempo']}s por pregunta.\n"
         f"Responde con `.respuesta`\n\n"
@@ -220,7 +230,7 @@ async def terminar_trivia(context, user_id, gano):
         subio = sumar_xp(user_id, config["premio_xp"])
         texto = (
             f"🎉 *¡TRIVIA COMPLETADA!*\n"
-            f"🌎 {partida['pais'].capitalize()} - {partida['dificultad'].capitalize()}\n"
+            f"🌎 {partida['categoria'].capitalize()} - {partida['dificultad'].capitalize()}\n"
             f"✅ 5/5\n\n"
             f"💰 +{config['premio_tokens']} tokens\n"
             f"✨ +{config['premio_xp']} XP"

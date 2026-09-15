@@ -13,6 +13,7 @@ from core.paises import lista_paises_texto
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
+from comandos.chat import chatm, msp, darTokens
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -51,7 +52,7 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais"
+    "/setpais", "/chatm", "/msp", "/darTokens"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -97,6 +98,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/reclamar - Recompensa diaria\n"
         "/eventos - Ver eventos\n"
         "/actividades - Menú de juegos\n"
+        "/chatm - Ir al chat mundial\n"
+        "/msp - Mensaje privado\n"
+        "/darTokens - Transferir tokens\n"
         "/tutorial - Guía completa"
     )
 
@@ -106,7 +110,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "📋 *Comandos básicos:*\n"
         "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
         "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
-        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n/tutorial\n\n"
+        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
+        "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
+        "/tutorial\n\n"
         "🎮 Juegos: /actividades",
         parse_mode="Markdown"
     )
@@ -170,12 +176,10 @@ def main() -> None:
     init_eventos_db()
     init_reclamar_db()
 
-    # Sin proxy: la nube conecta directo con Telegram
     app = Application.builder().token(TOKEN).build()
 
-    # JobQueue: revisa timeouts cada X segundos
     if app.job_queue is None:
-        print("⚠️ ADVERTENCIA: job_queue es None. Revisa que requirements.txt tenga [job-queue]")
+        print("⚠️ ADVERTENCIA: job_queue es None. Revisa requirements.txt tenga [job-queue]")
     else:
         app.job_queue.run_repeating(revisar_expiradas, interval=30, first=10)
         app.job_queue.run_repeating(revisar_timeouts_mates, interval=10, first=10)
@@ -188,19 +192,16 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
         print("✅ JobQueue configurado con 9 tareas programadas")
 
-    # GRUPO -10: bloquear comandos en partida
     app.add_handler(
         MessageHandler(filters.ALL, bloquear_comandos_en_partida),
         group=-10
     )
 
-    # GRUPO -5: confirmaciones .si/.no
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"), confirmar_accion),
         group=-5
     )
 
-    # GRUPO -4: .comenzar y .cancelar (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"), comenzar),
         group=-4
@@ -210,7 +211,6 @@ def main() -> None:
         group=-4
     )
 
-    # GRUPO -3: .asistir y .atras (eventos)
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[aA][sS][iI][sS][tT][iI][rR]$"), asistir),
         group=-3
@@ -220,20 +220,16 @@ def main() -> None:
         group=-3
     )
 
-    # GRUPO 0: verificar registro (ANTES de los comandos)
     app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=0)
 
-    # GRUPO 5-9: respuestas de minijuegos
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_mates), group=5)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_memoria), group=6)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_trivia), group=7)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_palabras), group=8)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), responder_funks), group=9)
 
-    # GRUPO 100: ver evento (.nombre)
     app.add_handler(MessageHandler(filters.Regex(r"^\."), ver_evento), group=100)
 
-    # GRUPO 10: TODOS los comandos
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)
@@ -274,6 +270,10 @@ def main() -> None:
     app.add_handler(CommandHandler("giveXP", giveXP), group=10)
     app.add_handler(CommandHandler("removeTokens", removeTokens), group=10)
     app.add_handler(CommandHandler("removeXP", removeXP), group=10)
+
+    app.add_handler(CommandHandler("chatm", chatm), group=10)
+    app.add_handler(CommandHandler("msp", msp), group=10)
+    app.add_handler(CommandHandler("darTokens", darTokens), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

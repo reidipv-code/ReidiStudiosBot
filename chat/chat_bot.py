@@ -8,7 +8,8 @@ from telegram.ext import (
     ContextTypes,
     MessageHandler,
     ChatMemberHandler,
-    ApplicationHandlerStop
+    ApplicationHandlerStop,
+    filters
 )
 
 from core.db import DB_PATH
@@ -131,7 +132,7 @@ def crear_app():
 
 
 async def iniciar_chat_bot():
-    """Se llama desde start.py para arrancar el bot del chat de forma asíncrona."""
+    """Se llama desde start.py para arrancar el bot del chat."""
     app = crear_app()
     print("✅ Bot del chat corriendo...")
     await app.initialize()

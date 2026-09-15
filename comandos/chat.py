@@ -11,7 +11,7 @@ from core.paises import obtener_nombre as nombre_pais, obtener_bandera
 
 
 # Enlace al grupo del chat mundial
-CHAT_MUNDIAL_URL = "https://t.me/+XXXXXXXXXXXXXXXX"
+CHAT_MUNDIAL_URL = "https://t.me/+pUmtMdKAkM8zMjFh"
 
 
 async def chatm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

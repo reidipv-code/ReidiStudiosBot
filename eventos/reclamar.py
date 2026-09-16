@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.logros import dar_logro
+from core.misiones import sumar_progreso
 
 COOLDOWN = 24 * 60 * 60
 
@@ -112,7 +113,7 @@ async def reclamar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     set_reclamacion(user_id, ahora, racha, fecha_hoy)
 
-    # ─── Logros de racha ───────────────────────────────────
+    # Logros de racha
     if racha >= 7:
         if dar_logro(user_id, "racha_7"):
             await avisar_logro(context, user_id, "racha_7")
@@ -120,6 +121,11 @@ async def reclamar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if racha >= 30:
         if dar_logro(user_id, "racha_30"):
             await avisar_logro(context, user_id, "racha_30")
+
+    # Misiones (reclamación)
+    completadas = sumar_progreso(user_id, "reclamacion")
+    for m_id in completadas:
+        await avisar_mision(context, user_id, m_id)
 
     texto = (
         f"🎁 *¡RECOMPENSA RECLAMADA!*\n"
@@ -153,6 +159,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

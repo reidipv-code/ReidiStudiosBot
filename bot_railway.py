@@ -12,6 +12,7 @@ from core.db import (
 )
 from core.sesiones import init_sesiones_db, obtener_juego
 from core.paises import lista_paises_texto
+from core.logros import init_logros_db, LOGROS, logros_de_usuario, dar_logro
 
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
@@ -22,6 +23,7 @@ from comandos.stats import stats
 from comandos.sugerencia import sugerencia
 from comandos.help import help_command, help_botones
 from comandos.version import version, setversion
+from comandos.logros import logros
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -61,10 +63,29 @@ COMANDOS_VALIDOS = [
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
-    "/sugerencia", "/version", "/setversion"
+    "/sugerencia", "/version", "/setversion", "/logros"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
+
+
+async def avisar_logro(context, user_id, clave):
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -151,6 +172,27 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         raise ApplicationHandlerStop
 
+    # ─── Logro: Curioso (15 comandos distintos) ────────────
+    from core.logros import obtener_stats, actualizar_stat
+    stats = obtener_stats(user_id)
+    comandos_usados = stats[10] if stats[10] else ""
+
+    if comando not in comandos_usados.split(","):
+        # Es un comando nuevo para este usuario
+        if comandos_usados:
+            nuevos = comandos_usados + "," + comando
+        else:
+            nuevos = comando
+
+        actualizar_stat(user_id, "comandos_usados", valor=nuevos)
+
+        # Contar distintos
+        total_distintos = len(set(nuevos.split(",")))
+
+        if total_distintos >= 15:
+            if dar_logro(user_id, "curioso"):
+                await avisar_logro(context, user_id, "curioso")
+
 
 def main() -> None:
     init_db()
@@ -166,6 +208,7 @@ def main() -> None:
     init_funks_db()
     init_eventos_db()
     init_reclamar_db()
+    init_logros_db()
 
     app = Application.builder().token(TOKEN).build()
 
@@ -276,6 +319,7 @@ def main() -> None:
     app.add_handler(CommandHandler("sugerencia", sugerencia), group=10)
     app.add_handler(CommandHandler("version", version), group=10)
     app.add_handler(CommandHandler("setversion", setversion), group=10)
+    app.add_handler(CommandHandler("logros", logros), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

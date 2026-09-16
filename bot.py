@@ -17,6 +17,7 @@ from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
 from comandos.chat import chatm, msp, darTokens
+from comandos.top import top
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -44,7 +45,7 @@ from eventos.reclamar import init_reclamar_db, reclamar
 
 load_dotenv()
 
-TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 
 COMANDOS_VALIDOS = [
     "/start", "/help", "/reg", "/unreg", "/deletereg",
@@ -55,14 +56,110 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais", "/chatm", "/msp", "/darTokens"
+    "/setpais", "/chatm", "/msp", "/darTokens", "/top"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
 
 
 async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Guarda la última actividad del usuario en cada mensaje."""
+    if update.effective_user:
+        try:
+            actualizar_ultima_actividad(update.effective_user.id)
+        except Exception:
+            pass
+
+
+async def bloquear_comandos_en_partida(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.message.text:
+        return
+
+    user_id = update.effective_user.id
+    juego = obtener_juego(user_id)
+
+    if juego is None:
+        return
+
+    texto = update.message.text.strip()
+
+    if texto.startswith("/"):
+        if texto.startswith("/start") or texto.startswith("/cancelar"):
+            return
+        await update.message.reply_text(
+            f"⚠️ Estás en una partida de *{juego}*.\n"
+            f"Termínala primero para usar otros comandos.",
+            parse_mode="Markdown"
+        )
+        raise ApplicationHandlerStop
+
+    return
+
+
+async def start(update: Update, context: ContextTypes.DEFAimport os
+from dotenv import load_dotenv
+from telegram import Update
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes, MessageHandler,
+    filters, ApplicationHandlerStop
+)
+
+from core.db import (
+    init_db, esta_registrado, obtener_datos, usuario_tiene_pais,
+    actualizar_ultima_actividad
+)
+from core.sesiones import init_sesiones_db, obtener_juego
+from core.paises import lista_paises_texto
+
+from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
+from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
+from comandos.tutorial import tutorial
+from comandos.chat import chatm, msp, darTokens
+from comandos.top import top
+
+from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
+
+from banco.banco import init_banco_db, bank, depositar, retirar
+
+from juegos.menu import actividades
+from juegos.ruleta import init_juegos_db, ruleta
+from juegos.apuestas import init_apuestas_db, apostar, cancelar, revisar_expiradas
+from juegos.mates import (
+    init_mates_db, mates, responder as responder_mates,
+    revisar_timeouts as revisar_timeouts_mates
+)
+from juegos.dados import init_dados_db, dados
+from juegos.memoria import init_memoria_db, memoria, responder_memoria, revisar_timeouts_memoria
+from juegos.palabras import init_palabras_db, palabras, responder_palabras, revisar_timeouts_palabras
+from juegos.funks import init_funks_db, funks, responder_funks, revisar_timeouts_funks
+from juegos.trivia import init_trivia_db, trivia, responder_trivia, revisar_timeouts_trivia
+
+from eventos.eventos import (
+    init_eventos_db, eventos, ver_evento, asistir, atras,
+    comenzar, cancelar_evento, addevent, removeevent, editevent,
+    revisar_eventos_expirados, revisar_eventos_iniciando, revisar_descalificados
+)
+from eventos.reclamar import init_reclamar_db, reclamar
+
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
+
+COMANDOS_VALIDOS = [
+    "/start", "/help", "/reg", "/unreg", "/deletereg",
+    "/perfil", "/tokens", "/nivel", "/rango",
+    "/actividades", "/juegos", "/ruleta", "/apostar", "/cancelar",
+    "/userslist", "/mates", "/tutorial",
+    "/bank", "/depositar", "/retirar", "/anunciar", "/reclamar",
+    "/eventos", "/addevent", "/removeevent", "/editevent",
+    "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
+    "/dados", "/memoria", "/trivia", "/palabras", "/funks",
+    "/setpais", "/chatm", "/msp", "/darTokens", "/top"
+]
+
+COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
+
+
+async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if update.effective_user:
         try:
             actualizar_ultima_actividad(update.effective_user.id)
@@ -110,6 +207,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/reclamar - Recompensa diaria\n"
         "/eventos - Ver eventos\n"
         "/actividades - Menú de juegos\n"
+        "/top - Rankings\n"
         "/chatm - Ir al chat mundial\n"
         "/msp - Mensaje privado\n"
         "/darTokens - Transferir tokens\n"
@@ -123,6 +221,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
         "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
         "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
+        "/top tokens | /top nivel | /top all\n"
         "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
         "/tutorial\n\n"
         "🎮 Juegos: /actividades",
@@ -204,7 +303,6 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
         print("✅ JobQueue configurado con 9 tareas programadas")
 
-    # GRUPO -100: rastrear actividad (SIEMPRE, antes que todo)
     app.add_handler(
         MessageHandler(filters.ALL, rastrear_actividad),
         group=-100
@@ -292,10 +390,115 @@ def main() -> None:
     app.add_handler(CommandHandler("chatm", chatm), group=10)
     app.add_handler(CommandHandler("msp", msp), group=10)
     app.add_handler(CommandHandler("darTokens", darTokens), group=10)
+    app.add_handler(CommandHandler("top", top), group=10)
 
     print("Bot corriendo...")
     app.run_polling()
 
 
 if __name__ == "__main__":
-    main()
+    main()￼EnterULT_TYPE) -> None:
+    await update.message.reply_text(
+        "¡Hola! Soy ReidiStudiosBot.\n\n"
+        "Regístrate con:\n/reg nombre.pais\n\n"
+        "Ejemplo: /reg Juan.cuba\n\n"
+  "Comandos:\n"
+        "/start - Iniciar\n"
+        "/help - Ayuda\n"
+        "/reg nombre.pais - Registrarte\n"
+        "/setpais pais - Configurar país (una vez)\n"
+        "/perfil - Ver tu perfil\n"
+        "/bank - Ver tu banco\n"
+        "/reclamar - Recompensa diaria\n"
+        "/eventos - Ver eventos\n"
+        "/actividades - Menú de juegos\n"
+        "/top - Rankings\n"
+        "/chatm - Ir al chat mundial\n"
+        "/msp - Mensaje privado\n"
+        "/darTokens - Transferir tokens\n"
+        "/tutorial - Guía completa"
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        "📋 *Comandos básicos:*\n"
+        "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
+        "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
+        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
+        "/top tokens | /top nivel | /top all\n"
+        "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
+        "/tutorial\n\n"
+        "🎮 Juegos: /actividades",
+        parse_mode="Markdown"
+    )
+
+
+async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.message.text:
+        return
+
+    texto = update.message.text.strip()
+    if not texto.startswith("/"):
+        return
+
+    comando = texto.split()[0].split("@")[0].lower()
+    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais"]
+
+    if comando not in COMANDOS_VALIDOS_LOWER:
+        await update.message.reply_text(
+            f"❌ Comando no reconocido: `{comando}`\n\nUsa /help.",
+            parse_mode="Markdown"
+        )
+        raise ApplicationHandlerStop
+
+    if comando in comandos_libres:
+        return
+
+    user_id = update.effective_user.id
+
+    if not esta_registrado(user_id):
+        await update.message.reply_text("🔒 Debes registrarte primero.\n\nUsa: /reg nombre.pais")
+        raise ApplicationHandlerStop
+
+    datos = obtener_datos(user_id)
+    if datos[5] == 0:
+        await update.message.reply_text("🔒 Sesión cerrada. Usa /reg.")
+        raise ApplicationHandlerStop
+
+    if not usuario_tiene_pais(user_id):
+        await update.message.reply_text(
+            "🌎 *Debes configurar tu país*\n\n"
+            "Usa: `/setpais pais`\n\n"
+            "Ejemplo: `/setpais cuba`\n\n"
+            "📋 *Países disponibles:*\n" + lista_paises_texto(),
+            parse_mode="Markdown"
+        )
+        raise ApplicationHandlerStop
+
+
+def main() -> None:
+    init_db()
+    init_sesiones_db()
+    init_banco_db()
+    init_juegos_db()
+    init_apuestas_db()
+    init_mates_db()
+    init_dados_db()
+    init_memoria_db()
+    init_trivia_db()
+    init_palabras_db()
+    init_funks_db()
+    init_eventos_db()
+    init_reclamar_db()
+
+    app = Application.builder().token(TOKEN).build()
+
+    if app.job_queue is None:
+        print("⚠️ ADVERTENCIA: job_queue es None. Revisa requirements.txt tenga [job-queue]")
+    else:
+        app.job_queue.run_repeating(revisar_expiradas, interval=30, first=10)
+        app.job_queue.run_repeating(revisar_timeouts_mates, interval=10, first=10)
+        app.job_queue.run_repeating(revisar_timeouts_memoria, interval=10, first=10)
+        app.job_queue.run_repeating(revisar_timeouts_trivia, interval=10, first=10)
+        app.job_queue.run_repeating(revisar_timeouts_palabras, interval=10, first=10)

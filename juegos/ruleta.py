@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.logros import actualizar_stat, dar_logro, obtener_stats
+from core.misiones import sumar_progreso
 
 COLORES_VALIDOS = ["rojo", "verde", "azul", "amarillo", "naranja", "morado", "azul claro"]
 
@@ -126,6 +127,11 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if dar_logro(user_id, "fiestero"):
                 await avisar_logro(context, user_id, "fiestero")
 
+        # Misiones (ruleta ganada)
+        completadas = sumar_progreso(user_id, "ruleta_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
+
         texto = (
             f"🎰 *RULETA*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
@@ -167,6 +173,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

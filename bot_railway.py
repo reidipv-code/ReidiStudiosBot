@@ -140,6 +140,7 @@ async def bloquear_comandos_en_partida(update: Update, context: ContextTypes.DEF
 
     texto = update.message.text.strip()
 
+    # Solo bloquea los comandos con /
     if texto.startswith("/"):
         if texto.startswith("/start") or texto.startswith("/cancelar"):
             return
@@ -150,6 +151,7 @@ async def bloquear_comandos_en_partida(update: Update, context: ContextTypes.DEF
         )
         raise ApplicationHandlerStop
 
+    # Las respuestas con . SÍ se dejan pasar
     return
 
 
@@ -204,7 +206,6 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         raise ApplicationHandlerStop
 
-    # Logro: Curioso
     from core.logros import obtener_stats, actualizar_stat
     stats = obtener_stats(user_id)
     comandos_usados = stats[10] if stats[10] else ""

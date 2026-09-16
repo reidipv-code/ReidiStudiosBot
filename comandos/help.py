@@ -4,9 +4,6 @@ from telegram.ext import ContextTypes
 from core.db import esta_registrado
 
 
-# ═══════════════════════════════════════════════════════════
-# TEXTOS DE CADA CATEGORÍA
-# ═══════════════════════════════════════════════════════════
 MENU_PRINCIPAL = (
     "📋 *AYUDA - ReidiStudiosBot*\n"
     "━━━━━━━━━━━━━━━━━━━\n\n"
@@ -42,7 +39,8 @@ TEXTO_JUEGOS = (
     "`/funks` → Adivina la canción\n"
     "`/dados cantidad` → Tira los dados\n"
     "`/ruleta color` → Elige un color\n"
-    "`/apostar cantidad` → Apuesta contra otro"
+    "`/apostar cantidad` → Apuesta contra otro\n"
+    "`/invitar nombre cantidad` → Invita a un amigo"
 )
 
 TEXTO_ECONOMIA = (
@@ -71,6 +69,15 @@ TEXTO_SOCIAL = (
     "━━━━━━━━━━━━━━━━━━━\n\n"
     "`/chatm` → Ir al chat mundial\n"
     "`/msp nombre| mensaje` → Mensaje privado\n"
+    "`/amigo add nombre` → Enviar solicitud de amistad\n"
+    "`/amigo aceptar nombre` → Aceptar solicitud\n"
+    "`/amigo rechazar nombre` → Rechazar solicitud\n"
+    "`/amigo eliminar nombre` → Eliminar amigo\n"
+    "`/amigos` → Ver tu lista de amigos\n"
+    "`/amigos online` → Ver solo los conectados\n"
+    "`/solicitudes` → Ver solicitudes pendientes\n"
+    "`/invitar nombre cantidad` → Invitar a un amigo a apostar\n"
+    "`/top amigos` → Ranking entre tus amigos\n"
     "`/top tokens` → Top por tokens\n"
     "`/top nivel` → Top por nivel\n"
     "`/top all` → Top global\n"
@@ -83,6 +90,9 @@ TEXTO_INFO = (
     "━━━━━━━━━━━━━━━━━━━\n\n"
     "`/tutorial` → Guía completa paso a paso\n"
     "`/help` → Este menú de ayuda\n"
+    "`/logros` → Ver tus logros\n"
+    "`/reclamarlogros` → Reclamar logros pendientes\n"
+    "`/version` → Ver la versión del bot\n"
     "`/start` → Reinicia el bot\n\n"
     "📌 *Consejos:*\n"
     "• Los comandos no distinguen mayúsculas\n"
@@ -91,9 +101,6 @@ TEXTO_INFO = (
 )
 
 
-# ═══════════════════════════════════════════════════════════
-# TECLADOS
-# ═══════════════════════════════════════════════════════════
 def teclado_principal():
     return InlineKeyboardMarkup([
         [
@@ -117,9 +124,6 @@ def teclado_volver():
     ])
 
 
-# ═══════════════════════════════════════════════════════════
-# COMANDO /help
-# ═══════════════════════════════════════════════════════════
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         MENU_PRINCIPAL,
@@ -128,9 +132,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-# ═══════════════════════════════════════════════════════════
-# MANEJADOR DE BOTONES
-# ═══════════════════════════════════════════════════════════
 async def help_botones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -138,44 +139,16 @@ async def help_botones(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     data = query.data
 
     if data == "help_cuenta":
-        await query.edit_message_text(
-            TEXTO_CUENTA,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_CUENTA, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_juegos":
-        await query.edit_message_text(
-            TEXTO_JUEGOS,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_JUEGOS, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_economia":
-        await query.edit_message_text(
-            TEXTO_ECONOMIA,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_ECONOMIA, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_eventos":
-        await query.edit_message_text(
-            TEXTO_EVENTOS,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_EVENTOS, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_social":
-        await query.edit_message_text(
-            TEXTO_SOCIAL,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_SOCIAL, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_info":
-        await query.edit_message_text(
-            TEXTO_INFO,
-            parse_mode="Markdown",
-            reply_markup=teclado_volver()
-        )
+        await query.edit_message_text(TEXTO_INFO, parse_mode="Markdown", reply_markup=teclado_volver())
     elif data == "help_volver":
-        await query.edit_message_text(
-            MENU_PRINCIPAL,
-            parse_mode="Markdown",
-            reply_markup=teclado_principal()
-        )
+        await query.edit_message_text(MENU_PRINCIPAL, parse_mode="Markdown", reply_markup=teclado_principal())

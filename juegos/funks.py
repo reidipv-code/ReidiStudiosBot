@@ -6,13 +6,13 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
+from core.misiones import sumar_progreso
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
 TIEMPO = 40
 CANCIONES_POR_PARTIDA = 3
 
-# (letra, nombre, autores)
 FUNKS = [
     ("Na festa do fim de semana, sahur chegou", "passo bem solto", "atlxs"),
     ("Vida la vida es un carrusel", "montagem tomada", "josh gomez"),
@@ -211,6 +211,11 @@ async def terminar_funks(context, user_id, gano):
         if subio:
             texto += f"\n⭐ ¡Nivel {subio}!"
         texto += "\n⏳ Cooldown: 10 min"
+
+        # Misiones
+        completadas = sumar_progreso(user_id, "funks_completada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
     else:
         texto = f"😢 *FALLIDO*\n✅ Aciertos: {partida['aciertos']}/3\n⏳ Cooldown: 7 min"
 
@@ -219,6 +224,29 @@ async def terminar_funks(context, user_id, gano):
     except Exception:
         pass
     del partidas_funks[user_id]
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def revisar_timeouts_funks(context) -> None:

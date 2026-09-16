@@ -10,6 +10,7 @@ from core.db import (
 )
 from core.paises import obtener_nombre as nombre_pais, obtener_bandera
 from core.logros import actualizar_stat, dar_logro, obtener_stats
+from core.misiones import sumar_progreso
 
 
 CHAT_MUNDIAL_URL = "https://t.me/+XXXXXXXXXXXXXXXX"
@@ -28,6 +29,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )
@@ -111,22 +135,11 @@ async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     texto_final = f"{bandera_envia} {nombre_envia} ~ {mensaje}"
 
     try:
-        await context.bot.send_message(
-            chat_id=destino_id,
-            text=texto_final
-        )
+        await context.bot.send_message(chat_id=destino_id, text=texto_final)
         await update.message.reply_text(
             f"✅ Mensaje enviado a *{nombre_destino}*.",
             parse_mode="Markdown"
         )
-
-        # ─── Logro: Social (10 msp) ────────────────────────
-        actualizar_stat(user_id, "msp_usados", incremento=1)
-        stats = obtener_stats(user_id)
-        if stats[6] >= 10:
-            if dar_logro(user_id, "social"):
-                await avisar_logro(context, user_id, "social")
-
     except Exception as e:
         await update.message.reply_text(f"❌ No se pudo enviar: {e}")
 
@@ -217,11 +230,7 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
     try:
-        await context.bot.send_message(
-            chat_id=destino_id,
-            text=texto_carta,
-            parse_mode="Markdown"
-        )
+        await context.bot.send_message(chat_id=destino_id, text=texto_carta, parse_mode="Markdown")
     except Exception as e:
         actualizar_tokens(user_id, cantidad)
         actualizar_tokens(destino_id, -cantidad)
@@ -233,3 +242,8 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"📝 Mensaje: _{mensaje}_",
         parse_mode="Markdown"
     )
+
+    # Misiones (dar_tokens)
+    completadas = sumar_progreso(user_id, "dar_tokens")
+    for m_id in completadas:
+        await avisar_mision(context, user_id, m_id)

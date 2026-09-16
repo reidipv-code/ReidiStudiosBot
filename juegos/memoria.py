@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, resetear_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.logros import dar_logro
+from core.misiones import sumar_progreso
 
 FRUTAS = ["🍎", "🍌", "🍇", "🍓", "🍊", "🍒", "🥝", "🍍", "🍑", "🍐",
           "🍋", "🍉", "🥭", "🫐", "🍈", "🥥", "🍅", "🥑", "🍆", "🌰"]
@@ -213,10 +214,14 @@ async def responder_memoria(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         actualizar_tokens(user_id, 2)
         sumar_xp(user_id, 2)
 
-        # Logro: Memorión (ronda 20)
         if partida["ronda"] >= 20:
             if dar_logro(user_id, "memorion"):
                 await avisar_logro(context, user_id, "memorion")
+
+        # Misiones (memoria ronda)
+        completadas = sumar_progreso(user_id, "memoria_ronda", cantidad=partida["ronda"])
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
 
         if partida["ronda"] >= 50:
             await terminar_memoria(context, user_id, gano=True)
@@ -281,6 +286,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

@@ -9,3 +9,4 @@ from .reclamarlogros import reclamarlogros
 from .amigos import amigo, amigos, solicitudes
 from .amigos_top import top_amigos
 from .amigos_invitar import invitar, responder_invitacion, revisar_invitaciones_expiradas
+from .misiones import misiones

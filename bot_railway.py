@@ -27,6 +27,8 @@ from comandos.version import version, setversion
 from comandos.logros import logros
 from comandos.reclamarlogros import reclamarlogros
 from comandos.amigos import amigo, amigos, solicitudes
+from comandos.amigos_top import top_amigos
+from comandos.amigos_invitar import invitar, responder_invitacion, revisar_invitaciones_expiradas
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -67,7 +69,8 @@ COMANDOS_VALIDOS = [
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
     "/sugerencia", "/version", "/setversion", "/logros",
-    "/reclamarlogros", "/amigo", "/amigos", "/solicitudes"
+    "/reclamarlogros", "/amigo", "/amigos", "/solicitudes",
+    "/invitar"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -226,7 +229,8 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_eventos_expirados, interval=60, first=30)
         app.job_queue.run_repeating(revisar_eventos_iniciando, interval=30, first=15)
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
-        print("✅ JobQueue configurado con 9 tareas programadas")
+        app.job_queue.run_repeating(revisar_invitaciones_expiradas, interval=30, first=30)
+        print("✅ JobQueue configurado con 10 tareas programadas")
 
     app.add_handler(
         MessageHandler(filters.ALL, rastrear_actividad),
@@ -274,6 +278,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
     app.add_handler(CallbackQueryHandler(help_botones, pattern=r"^help_"), group=10)
+    app.add_handler(CallbackQueryHandler(responder_invitacion, pattern=r"^inv_"), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)
     app.add_handler(CommandHandler("reg", reg), group=10)
     app.add_handler(CommandHandler("unreg", unreg), group=10)
@@ -326,6 +331,7 @@ def main() -> None:
     app.add_handler(CommandHandler("amigo", amigo), group=10)
     app.add_handler(CommandHandler("amigos", amigos), group=10)
     app.add_handler(CommandHandler("solicitudes", solicitudes), group=10)
+    app.add_handler(CommandHandler("invitar", invitar), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

@@ -1,4 +1,5 @@
 import time
+import random
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
@@ -11,6 +12,8 @@ from core.db import (
     sumar_xp,
 )
 from core.amigos import son_amigos
+from core.misiones import sumar_progreso
+
 
 # Invitaciones pendientes: {id_invitacion: {...}}
 invitaciones = {}
@@ -18,6 +21,30 @@ siguiente_id = 1
 
 # Tiempo que dura una invitación sin respuesta
 EXPIRACION = 120
+
+
+async def avisar_mision(context, user_id, m_id):
+    """Avisa al usuario que ha completado una misión."""
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def invitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -122,7 +149,6 @@ async def invitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "creada": time.time(),
     }
 
-    # Enviar la invitación al objetivo con botones
     teclado = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Aceptar", callback_data=f"inv_ok_{inv_id}"),
@@ -154,19 +180,20 @@ async def invitar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode="Markdown"
     )
 
+    # Misiones (invitacion_enviada)
+    completadas = sumar_progreso(user_id, "invitacion_enviada")
+    for m_id in completadas:
+        await avisar_mision(context, user_id, m_id)
+
 
 async def responder_invitacion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Maneja los botones de aceptar/rechazar."""
-    global siguiente_id
-    import random
-
     query = update.callback_query
     await query.answer()
 
     data = query.data
     user_id = query.from_user.id
 
-    # inv_ok_X o inv_no_X
     partes = data.split("_")
     if len(partes) != 3:
         return
@@ -244,6 +271,10 @@ async def responder_invitacion(update: Update, context: ContextTypes.DEFAULT_TYP
             f"💰 *{de_nombre}* ganó *{cantidad}* tokens\n"
             f"✨ +30 XP"
         )
+        # Misión apuesta_ganada para el ganador
+        completadas = sumar_progreso(de_id, "apuesta_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, de_id, m_id)
     else:
         actualizar_tokens(user_id, cantidad)
         actualizar_tokens(de_id, -cantidad)
@@ -256,6 +287,10 @@ async def responder_invitacion(update: Update, context: ContextTypes.DEFAULT_TYP
             f"💰 *{para_nombre}* ganó *{cantidad}* tokens\n"
             f"✨ +30 XP"
         )
+        # Misión apuesta_ganada para el ganador
+        completadas = sumar_progreso(user_id, "apuesta_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
 
     del invitaciones[inv_id]
 

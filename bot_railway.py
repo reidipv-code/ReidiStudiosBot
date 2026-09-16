@@ -9,18 +9,40 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ApplicationHandlerStop,
+    CallbackQueryHandler
 )
 
-from core.db import init_db, esta_registrado, obtener_datos, usuario_tiene_pais
-from core.sesiones import init_sesiones_db, obtener_juego
+from core.db import (
+    init_db,
+    esta_registrado,
+    obtener_datos,
+    usuario_tiene_pais,
+    actualizar_ultima_actividad
+)
+
+from core.sesiones import (
+    init_sesiones_db,
+    obtener_juego
+)
+
 from core.paises import lista_paises_texto
+
+from core.logros import (
+    init_logros_db,
+    LOGROS,
+    logros_de_usuario,
+    dar_logro
+)
+
+from core.amigos import init_amigos_db
+from core.misiones import init_misiones_db
 
 from comandos.registro import (
     reg,
     unreg,
     deletereg,
     confirmar_accion,
-    setpais,
+    setpais
 )
 
 from comandos.perfil import (
@@ -28,78 +50,104 @@ from comandos.perfil import (
     tokens_cmd,
     nivel_cmd,
     rango_cmd,
-    userslist,
+    userslist
 )
 
 from comandos.tutorial import tutorial
+
+from comandos.chat import (
+    chatm,
+    msp,
+    darTokens
+)
+
+from comandos.top import top
+from comandos.stats import stats
+from comandos.sugerencia import sugerencia
+from comandos.help import help_command, help_botones
+from comandos.version import version, setversion
+from comandos.logros import logros
+from comandos.reclamarlogros import reclamarlogros
+
+from comandos.amigos import (
+    amigo,
+    amigos,
+    solicitudes
+)
+
+from comandos.amigos_top import top_amigos
+
+from comandos.amigos_invitar import (
+    invitar,
+    responder_invitacion,
+    revisar_invitaciones_expiradas
+)
+
+from comandos.misiones import misiones
 
 from admin import (
     anunciar,
     giveTokens,
     giveXP,
     removeTokens,
-    removeXP,
+    removeXP
 )
 
 from banco.banco import (
     init_banco_db,
     bank,
     depositar,
-    retirar,
+    retirar
 )
 
 from juegos.menu import actividades
-
-from juegos.ruleta import (
-    init_juegos_db,
-    ruleta,
-)
+from juegos.ruleta import init_juegos_db, ruleta
 
 from juegos.apuestas import (
     init_apuestas_db,
     apostar,
     cancelar,
-    revisar_expiradas,
+    revisar_expiradas
 )
 
 from juegos.mates import (
     init_mates_db,
     mates,
     responder as responder_mates,
-    revisar_timeouts as revisar_timeouts_mates,
+    revisar_timeouts as revisar_timeouts_mates
 )
 
 from juegos.dados import (
     init_dados_db,
-    dados,
+    dados
 )
 
 from juegos.memoria import (
     init_memoria_db,
     memoria,
     responder_memoria,
-    revisar_timeouts_memoria,
+    revisar_timeouts_memoria
 )
 
 from juegos.palabras import (
     init_palabras_db,
     palabras,
     responder_palabras,
-    revisar_timeouts_palabras,
+    revisar_timeouts as revisar_timeouts_palabras
 )
 
 from juegos.funks import (
     init_funks_db,
     funks,
     responder_funks,
-    revisar_timeouts_funks,
+    revisar_timeouts as revisar_timeouts_funks
 )
 
 from juegos.trivia import (
     init_trivia_db,
     trivia,
     responder_trivia,
-    revisar_timeouts_trivia,
+    revisar_timeouts as revisar_timeouts_trivia
 )
 
 from eventos.eventos import (
@@ -115,12 +163,12 @@ from eventos.eventos import (
     editevent,
     revisar_eventos_expirados,
     revisar_eventos_iniciando,
-    revisar_descalificados,
+    revisar_descalificados
 )
 
 from eventos.reclamar import (
     init_reclamar_db,
-    reclamar,
+    reclamar
 )
 
 
@@ -128,6 +176,10 @@ load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
+
+# ============================================================
+# COMANDOS VÁLIDOS
+# ============================================================
 
 COMANDOS_VALIDOS = [
     "/start",
@@ -166,18 +218,153 @@ COMANDOS_VALIDOS = [
     "/palabras",
     "/funks",
     "/setpais",
+    "/chatm",
+    "/msp",
+    "/darTokens",
+    "/top",
+    "/stats",
+    "/sugerencia",
+    "/version",
+    "/setversion",
+    "/logros",
+    "/reclamarlogros",
+    "/amigo",
+    "/amigos",
+    "/solicitudes",
+    "/invitar",
+    "/misiones"
 ]
 
-
 COMANDOS_VALIDOS_LOWER = [
-    c.lower()
-    for c in COMANDOS_VALIDOS
+    c.lower() for c in COMANDOS_VALIDOS
 ]
 
 
 # ============================================================
-# BLOQUEAR COMANDOS MIENTRAS HAY UNA PARTIDA ACTIVA
-# GRUPO 1
+# COMANDOS QUE SÍ SE PUEDEN USAR DURANTE UNA PARTIDA
+# ============================================================
+
+COMANDOS_PERMITIDOS_EN_PARTIDA = {
+    "/start",
+    "/cancelar",
+
+    # Información / perfil
+    "/help",
+    "/perfil",
+    "/tokens",
+    "/nivel",
+    "/rango",
+    "/stats",
+    "/top",
+
+    # Logros
+    "/logros",
+    "/reclamarlogros",
+
+    # Amigos
+    "/amigo",
+    "/amigos",
+    "/solicitudes",
+    "/invitar",
+
+    # Misiones
+    "/misiones",
+
+    # Otros comandos que no inician juegos
+    "/sugerencia",
+    "/version"
+}
+
+
+# ============================================================
+# AVISAR LOGRO
+# ============================================================
+
+async def avisar_logro(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id,
+    clave
+):
+    info = LOGROS.get(clave)
+
+    if not info:
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+
+    except Exception:
+        pass
+
+
+# ============================================================
+# AVISAR MISIÓN
+# ============================================================
+
+async def avisar_mision(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id,
+    m_id
+):
+    from core.misiones import MISIONES
+
+    info = MISIONES.get(m_id)
+
+    if not info:
+        return
+
+    recompensa = f"+{info['tokens']}💰"
+
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
+            ),
+            parse_mode="Markdown"
+        )
+
+    except Exception:
+        pass
+
+
+# ============================================================
+# RASTREAR ACTIVIDAD
+# ============================================================
+
+async def rastrear_actividad(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+) -> None:
+
+    if update.effective_user:
+
+        try:
+            actualizar_ultima_actividad(
+                update.effective_user.id
+            )
+
+        except Exception:
+            pass
+
+
+# ============================================================
+# BLOQUEAR COMANDOS DURANTE PARTIDA
 # ============================================================
 
 async def bloquear_comandos_en_partida(
@@ -185,38 +372,76 @@ async def bloquear_comandos_en_partida(
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
 
-    if not update.message or not update.message.text:
+    if not update.message:
+        return
+
+    if not update.message.text:
         return
 
     user_id = update.effective_user.id
 
     juego = obtener_juego(user_id)
 
+    # No hay partida activa
     if juego is None:
         return
 
     texto = update.message.text.strip()
 
-    if texto.startswith("/"):
+    # ========================================================
+    # LOS MENSAJES NORMALES NO SE BLOQUEAN
+    # Esto permite:
+    #
+    # .mente ma
+    # .palabra
+    # .respuesta
+    # etc.
+    # ========================================================
 
-        # Estos comandos permanecen permitidos
-        if texto.startswith("/start") or texto.startswith("/cancelar"):
-            return
+    if not texto.startswith("/"):
+        return
 
-        await update.message.reply_text(
-            f"⚠️ Estás en una partida de *{juego}*.\n"
-            f"Termínala primero para usar otros comandos.",
-            parse_mode="Markdown",
-        )
+    # ========================================================
+    # SACAR EL COMANDO
+    #
+    # /top
+    # /top@ReidiStudiosBot
+    # /amigos
+    # /amigo Juan
+    #
+    # Todos se convierten a:
+    #
+    # /top
+    # /amigos
+    # /amigo
+    # ========================================================
 
-        raise ApplicationHandlerStop
+    comando = texto.split()[0].split("@")[0].lower()
 
-    return
+    # ========================================================
+    # COMANDOS PERMITIDOS DURANTE PARTIDA
+    # ========================================================
+
+    if comando in COMANDOS_PERMITIDOS_EN_PARTIDA:
+        return
+
+    # ========================================================
+    # CUALQUIER OTRO COMANDO SE BLOQUEA
+    # ========================================================
+
+    await update.message.reply_text(
+        f"⚠️ Estás en una partida de *{juego}*.\n\n"
+        f"Termínala primero para usar este comando.\n\n"
+        f"Puedes usar `/top`, `/amigos`, `/misiones`, "
+        f"`/sugerencia` y otros comandos informativos.",
+        parse_mode="Markdown"
+    )
+
+    raise ApplicationHandlerStop
 
 
 # ============================================================
 # START
-# GRUPO 10
 # ============================================================
 
 async def start(
@@ -228,58 +453,14 @@ async def start(
         "¡Hola! Soy ReidiStudiosBot.\n\n"
         "Regístrate con:\n"
         "/reg nombre.pais\n\n"
-        "Ejemplo: /reg Juan.cuba\n\n"
-        "Comandos:\n"
-        "/start - Iniciar\n"
-        "/help - Ayuda\n"
-        "/reg nombre.pais - Registrarte\n"
-        "/setpais pais - Configurar país (una vez)\n"
-        "/perfil - Ver tu perfil\n"
-        "/bank - Ver tu banco\n"
-        "/reclamar - Recompensa diaria\n"
-        "/eventos - Ver eventos\n"
-        "/actividades - Menú de juegos\n"
-        "/tutorial - Guía completa"
-    )
-
-
-# ============================================================
-# HELP
-# GRUPO 10
-# ============================================================
-
-async def help_command(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-) -> None:
-
-    await update.message.reply_text(
-        "📋 *Comandos básicos:*\n"
-        "/start\n"
-        "/help\n"
-        "/reg nombre.pais\n"
-        "/unreg\n"
-        "/deletereg\n"
-        "/setpais pais\n"
-        "/perfil\n"
-        "/tokens\n"
-        "/nivel\n"
-        "/rango\n"
-        "/userslist\n"
-        "/bank\n"
-        "/depositar\n"
-        "/retirar\n"
-        "/reclamar\n"
-        "/eventos\n"
-        "/tutorial\n\n"
-        "🎮 Juegos: /actividades",
-        parse_mode="Markdown",
+        "Ejemplo:\n"
+        "/reg Juan.cuba\n\n"
+        "Usa /help para ver todos los comandos."
     )
 
 
 # ============================================================
 # VERIFICAR REGISTRO
-# GRUPO 5
 # ============================================================
 
 async def verificar_registro(
@@ -287,7 +468,10 @@ async def verificar_registro(
     context: ContextTypes.DEFAULT_TYPE
 ) -> None:
 
-    if not update.message or not update.message.text:
+    if not update.message:
+        return
+
+    if not update.message.text:
         return
 
     texto = update.message.text.strip()
@@ -297,6 +481,24 @@ async def verificar_registro(
 
     comando = texto.split()[0].split("@")[0].lower()
 
+    # ========================================================
+    # COMANDO NO RECONOCIDO
+    # ========================================================
+
+    if comando not in COMANDOS_VALIDOS_LOWER:
+
+        await update.message.reply_text(
+            f"❌ Comando no reconocido: `{comando}`\n\n"
+            f"Usa /help.",
+            parse_mode="Markdown"
+        )
+
+        raise ApplicationHandlerStop
+
+    # ========================================================
+    # COMANDOS LIBRES
+    # ========================================================
+
     comandos_libres = [
         "/start",
         "/help",
@@ -305,70 +507,126 @@ async def verificar_registro(
         "/deletereg",
         "/tutorial",
         "/setpais",
+        "/version"
     ]
 
-    # Comando no reconocido
-    if comando not in COMANDOS_VALIDOS_LOWER:
-
-        await update.message.reply_text(
-            f"❌ Comando no reconocido: `{comando}`\n\n"
-            "Usa /help.",
-            parse_mode="Markdown",
-        )
-
-        raise ApplicationHandlerStop
-
-    # Comandos que no necesitan registro
     if comando in comandos_libres:
         return
 
     user_id = update.effective_user.id
 
-    # Usuario no registrado
+    # ========================================================
+    # VERIFICAR REGISTRO
+    # ========================================================
+
     if not esta_registrado(user_id):
 
         await update.message.reply_text(
             "🔒 Debes registrarte primero.\n\n"
-            "Usa: /reg nombre.pais"
+            "Usa:\n"
+            "/reg nombre.pais"
         )
 
         raise ApplicationHandlerStop
+
+    # ========================================================
+    # VERIFICAR SESIÓN
+    # ========================================================
 
     datos = obtener_datos(user_id)
 
-    # Sesión cerrada
     if datos[5] == 0:
 
         await update.message.reply_text(
-            "🔒 Sesión cerrada. Usa /reg."
+            "🔒 Sesión cerrada.\n\n"
+            "Usa /reg."
         )
 
         raise ApplicationHandlerStop
 
-    # Usuario sin país
+    # ========================================================
+    # VERIFICAR PAÍS
+    # ========================================================
+
     if not usuario_tiene_pais(user_id):
 
         await update.message.reply_text(
             "🌎 *Debes configurar tu país*\n\n"
-            "Usa: `/setpais pais`\n\n"
-            "Ejemplo: `/setpais cuba`\n\n"
+            "Usa:\n"
+            "`/setpais pais`\n\n"
+            "Ejemplo:\n"
+            "`/setpais cuba`\n\n"
             "📋 *Países disponibles:*\n"
             + lista_paises_texto(),
-            parse_mode="Markdown",
+            parse_mode="Markdown"
         )
 
         raise ApplicationHandlerStop
+
+    # ========================================================
+    # REGISTRAR COMANDO USADO PARA LOGRO
+    # ========================================================
+
+    from core.logros import (
+        obtener_stats,
+        actualizar_stat
+    )
+
+    stats_usuario = obtener_stats(user_id)
+
+    comandos_usados = (
+        stats_usuario[10]
+        if stats_usuario[10]
+        else ""
+    )
+
+    if comando not in comandos_usados.split(","):
+
+        if comandos_usados:
+
+            nuevos = (
+                comandos_usados
+                + ","
+                + comando
+            )
+
+        else:
+
+            nuevos = comando
+
+        actualizar_stat(
+            user_id,
+            "comandos_usados",
+            valor=nuevos
+        )
+
+        total_distintos = len(
+            set(nuevos.split(","))
+        )
+
+        if total_distintos >= 15:
+
+            if dar_logro(
+                user_id,
+                "curioso"
+            ):
+
+                await avisar_logro(
+                    context,
+                    user_id,
+                    "curioso"
+                )
 
 
 # ============================================================
 # MAIN
 # ============================================================
 
-def main() -> None:
+def main():
 
-    # --------------------------------------------------------
-    # Inicializar bases de datos
-    # --------------------------------------------------------
+    # ========================================================
+    # BASES DE DATOS
+    # ========================================================
 
     init_db()
     init_sesiones_db()
@@ -383,22 +641,31 @@ def main() -> None:
     init_funks_db()
     init_eventos_db()
     init_reclamar_db()
+    init_logros_db()
+    init_amigos_db()
+    init_misiones_db()
 
-    # --------------------------------------------------------
-    # Crear aplicación
-    # --------------------------------------------------------
+    # ========================================================
+    # BOT
+    # ========================================================
 
-    app = Application.builder().token(TOKEN).build()
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
-    # --------------------------------------------------------
+    # ========================================================
     # JOB QUEUE
-    # --------------------------------------------------------
+    # ========================================================
 
     if app.job_queue is None:
 
         print(
             "⚠️ ADVERTENCIA: job_queue es None. "
-            "Revisa requirements.txt tenga [job-queue]"
+            "Revisa requirements.txt tenga "
+            "[job-queue]"
         )
 
     else:
@@ -406,77 +673,94 @@ def main() -> None:
         app.job_queue.run_repeating(
             revisar_expiradas,
             interval=30,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_timeouts_mates,
             interval=10,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_timeouts_memoria,
             interval=10,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_timeouts_trivia,
             interval=10,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_timeouts_palabras,
             interval=10,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_timeouts_funks,
             interval=10,
-            first=10,
+            first=10
         )
 
         app.job_queue.run_repeating(
             revisar_eventos_expirados,
             interval=60,
-            first=30,
+            first=30
         )
 
         app.job_queue.run_repeating(
             revisar_eventos_iniciando,
             interval=30,
-            first=15,
+            first=15
         )
 
         app.job_queue.run_repeating(
             revisar_descalificados,
             interval=30,
-            first=30,
+            first=30
+        )
+
+        app.job_queue.run_repeating(
+            revisar_invitaciones_expiradas,
+            interval=30,
+            first=30
         )
 
         print(
-            "✅ JobQueue configurado con 9 tareas programadas"
+            "✅ JobQueue configurado "
+            "con 10 tareas programadas"
         )
 
     # ========================================================
-    # GRUPO 1
-    # Bloquear comandos mientras hay partida
+    # ACTIVIDAD
     # ========================================================
 
     app.add_handler(
         MessageHandler(
             filters.ALL,
-            bloquear_comandos_en_partida,
+            rastrear_actividad
         ),
-        group=1,
+        group=-100
     )
 
     # ========================================================
-    # GRUPO 2
-    # Confirmaciones .si / .sí / .no
+    # BLOQUEO DE PARTIDAS
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            bloquear_comandos_en_partida
+        ),
+        group=-10
+    )
+
+    # ========================================================
+    # CONFIRMACIONES
     # ========================================================
 
     app.add_handler(
@@ -484,14 +768,13 @@ def main() -> None:
             filters.Regex(
                 r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"
             ),
-            confirmar_accion,
+            confirmar_accion
         ),
-        group=2,
+        group=-5
     )
 
     # ========================================================
-    # GRUPO 3
-    # .comenzar y .cancelar de eventos
+    # EVENTOS
     # ========================================================
 
     app.add_handler(
@@ -499,9 +782,9 @@ def main() -> None:
             filters.Regex(
                 r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"
             ),
-            comenzar,
+            comenzar
         ),
-        group=3,
+        group=-4
     )
 
     app.add_handler(
@@ -509,24 +792,19 @@ def main() -> None:
             filters.Regex(
                 r"^\.[cC][aA][nN][cC][eE][lL][aA][rR]$"
             ),
-            cancelar_evento,
+            cancelar_evento
         ),
-        group=3,
+        group=-4
     )
-
-    # ========================================================
-    # GRUPO 4
-    # .asistir y .atras
-    # ========================================================
 
     app.add_handler(
         MessageHandler(
             filters.Regex(
                 r"^\.[aA][sS][iI][sS][tT][iI][rR]$"
             ),
-            asistir,
+            asistir
         ),
-        group=4,
+        group=-3
     )
 
     app.add_handler(
@@ -534,275 +812,575 @@ def main() -> None:
             filters.Regex(
                 r"^\.[aA][tT][rR][aA][sS]$"
             ),
-            atras,
+            atras
         ),
-        group=4,
+        group=-3
     )
 
     # ========================================================
-    # GRUPO 5
-    # Verificar registro
+    # VERIFICACIÓN DE REGISTRO
     # ========================================================
 
     app.add_handler(
         MessageHandler(
             filters.COMMAND,
-            verificar_registro,
+            verificar_registro
         ),
-        group=5,
+        group=0
     )
 
     # ========================================================
-    # GRUPOS 6-10
-    # Respuestas de minijuegos
-    # ========================================================
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(r"^\."),
-            responder_mates,
-        ),
-        group=6,
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(r"^\."),
-            responder_memoria,
-        ),
-        group=7,
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(r"^\."),
-            responder_trivia,
-        ),
-        group=8,
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(r"^\."),
-            responder_palabras,
-        ),
-        group=9,
-    )
-
-    app.add_handler(
-        MessageHandler(
-            filters.Regex(r"^\."),
-            responder_funks,
-        ),
-        group=10,
-    )
-
-    # ========================================================
-    # GRUPO 11
-    # Ver evento .nombre
+    # RESPUESTAS DE JUEGOS
     # ========================================================
 
     app.add_handler(
         MessageHandler(
             filters.Regex(r"^\."),
-            ver_evento,
+            responder_mates
         ),
-        group=11,
+        group=5
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_memoria
+        ),
+        group=6
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_trivia
+        ),
+        group=7
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_palabras
+        ),
+        group=8
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_funks
+        ),
+        group=9
     )
 
     # ========================================================
-    # GRUPO 12
-    # TODOS LOS COMANDOS
+    # EVENTOS
     # ========================================================
 
     app.add_handler(
-        CommandHandler("start", start),
-        group=12,
+        MessageHandler(
+            filters.Regex(r"^\."),
+            ver_evento
+        ),
+        group=100
+    )
+
+    # ========================================================
+    # COMANDOS BÁSICOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "start",
+            start
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("help", help_command),
-        group=12,
+        CommandHandler(
+            "help",
+            help_command
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("tutorial", tutorial),
-        group=12,
+        CallbackQueryHandler(
+            help_botones,
+            pattern=r"^help_"
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("reg", reg),
-        group=12,
+        CallbackQueryHandler(
+            responder_invitacion,
+            pattern=r"^inv_"
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("unreg", unreg),
-        group=12,
+        CommandHandler(
+            "tutorial",
+            tutorial
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("deletereg", deletereg),
-        group=12,
+        CommandHandler(
+            "reg",
+            reg
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("setpais", setpais),
-        group=12,
+        CommandHandler(
+            "unreg",
+            unreg
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("perfil", perfil),
-        group=12,
+        CommandHandler(
+            "deletereg",
+            deletereg
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("tokens", tokens_cmd),
-        group=12,
+        CommandHandler(
+            "setpais",
+            setpais
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # PERFIL
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "perfil",
+            perfil
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("nivel", nivel_cmd),
-        group=12,
+        CommandHandler(
+            "tokens",
+            tokens_cmd
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("rango", rango_cmd),
-        group=12,
+        CommandHandler(
+            "nivel",
+            nivel_cmd
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("userslist", userslist),
-        group=12,
+        CommandHandler(
+            "rango",
+            rango_cmd
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("actividades", actividades),
-        group=12,
+        CommandHandler(
+            "userslist",
+            userslist
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # JUEGOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "actividades",
+            actividades
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("juegos", actividades),
-        group=12,
+        CommandHandler(
+            "juegos",
+            actividades
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("ruleta", ruleta),
-        group=12,
+        CommandHandler(
+            "ruleta",
+            ruleta
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("apostar", apostar),
-        group=12,
+        CommandHandler(
+            "apostar",
+            apostar
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("cancelar", cancelar),
-        group=12,
+        CommandHandler(
+            "cancelar",
+            cancelar
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("mates", mates),
-        group=12,
+        CommandHandler(
+            "mates",
+            mates
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("dados", dados),
-        group=12,
+        CommandHandler(
+            "dados",
+            dados
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("memoria", memoria),
-        group=12,
+        CommandHandler(
+            "memoria",
+            memoria
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("trivia", trivia),
-        group=12,
+        CommandHandler(
+            "trivia",
+            trivia
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("palabras", palabras),
-        group=12,
+        CommandHandler(
+            "palabras",
+            palabras
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("funks", funks),
-        group=12,
+        CommandHandler(
+            "funks",
+            funks
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # BANCO
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "bank",
+            bank
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("bank", bank),
-        group=12,
+        CommandHandler(
+            "depositar",
+            depositar
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("depositar", depositar),
-        group=12,
+        CommandHandler(
+            "retirar",
+            retirar
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # EVENTOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "reclamar",
+            reclamar
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("retirar", retirar),
-        group=12,
+        CommandHandler(
+            "eventos",
+            eventos
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("reclamar", reclamar),
-        group=12,
+        CommandHandler(
+            "addevent",
+            addevent
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("eventos", eventos),
-        group=12,
+        CommandHandler(
+            "removeevent",
+            removeevent
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("addevent", addevent),
-        group=12,
+        CommandHandler(
+            "editevent",
+            editevent
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # ADMIN
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "anunciar",
+            anunciar
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("removeevent", removeevent),
-        group=12,
+        CommandHandler(
+            "giveTokens",
+            giveTokens
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("editevent", editevent),
-        group=12,
+        CommandHandler(
+            "giveXP",
+            giveXP
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("anunciar", anunciar),
-        group=12,
+        CommandHandler(
+            "removeTokens",
+            removeTokens
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("giveTokens", giveTokens),
-        group=12,
+        CommandHandler(
+            "removeXP",
+            removeXP
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # CHAT
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "chatm",
+            chatm
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("giveXP", giveXP),
-        group=12,
+        CommandHandler(
+            "msp",
+            msp
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("removeTokens", removeTokens),
-        group=12,
+        CommandHandler(
+            "darTokens",
+            darTokens
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # TOP / STATS / SUGERENCIAS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "top",
+            top
+        ),
+        group=10
     )
 
     app.add_handler(
-        CommandHandler("removeXP", removeXP),
-        group=12,
+        CommandHandler(
+            "stats",
+            stats
+        ),
+        group=10
     )
 
-    # --------------------------------------------------------
-    # Iniciar bot
-    # --------------------------------------------------------
+    app.add_handler(
+        CommandHandler(
+            "sugerencia",
+            sugerencia
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # VERSIÓN
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "version",
+            version
+        ),
+        group=10
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "setversion",
+            setversion
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # LOGROS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "logros",
+            logros
+        ),
+        group=10
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "reclamarlogros",
+            reclamarlogros
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # AMIGOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "amigo",
+            amigo
+        ),
+        group=10
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "amigos",
+            amigos
+        ),
+        group=10
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "solicitudes",
+            solicitudes
+        ),
+        group=10
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "invitar",
+            invitar
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # TOP DE AMIGOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "top_amigos",
+            top_amigos
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # MISIONES
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "misiones",
+            misiones
+        ),
+        group=10
+    )
+
+    # ========================================================
+    # ARRANCAR
+    # ========================================================
 
     print("Bot corriendo...")
 
     app.run_polling()
 
+
+# ============================================================
+# EJECUCIÓN
+# ============================================================
 
 if __name__ == "__main__":
     main()

@@ -3,3 +3,4 @@ from .top import top
 from .stats import stats
 from .sugerencia import sugerencia
 from .help import help_command, help_botones
+from .version import version, setversion

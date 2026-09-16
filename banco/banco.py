@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, DB_PATH
+from core.logros import dar_logro
 
 LIMITE_BANCO = 4000
 
@@ -35,6 +36,26 @@ def set_saldo_banco(user_id, cantidad):
     c.execute("INSERT OR REPLACE INTO banco (user_id, saldo) VALUES (?, ?)", (user_id, cantidad))
     conn.commit()
     conn.close()
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def bank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -108,6 +129,12 @@ async def depositar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     actualizar_tokens(user_id, -cantidad)
     set_saldo_banco(user_id, en_banco + cantidad)
+
+    # ─── Logro: Banquero ───────────────────────────────────
+    nuevo_saldo = en_banco + cantidad
+    if nuevo_saldo >= 4000:
+        if dar_logro(user_id, "banquero"):
+            await avisar_logro(context, user_id, "banquero")
 
     await update.message.reply_text(
         f"✅ *Depósito exitoso*\n"

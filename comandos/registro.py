@@ -23,6 +23,8 @@ from core.paises import (
     lista_paises_texto
 )
 
+from core.logros import dar_logro
+
 
 async def notificar_a_todos(context, user_id_excluir, texto):
     ids = obtener_todos_los_usuarios()
@@ -41,35 +43,34 @@ async def notificar_a_todos(context, user_id_excluir, texto):
             pass
 
 
-async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    Registra un usuario con:
-
-        /reg nombre.pais
-
-    Ejemplo:
-
-        /reg OriGamePlay.cuba
-
-    Esta versión incluye mensajes de diagnóstico para detectar
-    exactamente dónde ocurre un posible error.
-    """
-
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
     try:
-        # ---------------------------------------------------------
-        # DATOS DEL USUARIO
-        # ---------------------------------------------------------
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
+
+async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
         user_id = update.effective_user.id
         username = update.effective_user.username or "sin_username"
 
         print(f"[REG] Comando recibido de user_id={user_id}")
         print(f"[REG] username={username}")
         print(f"[REG] context.args={context.args}")
-
-        # ---------------------------------------------------------
-        # COMPROBAR ARGUMENTOS
-        # ---------------------------------------------------------
 
         if not context.args:
             await update.message.reply_text(
@@ -82,12 +83,7 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         argumento = " ".join(context.args).strip()
-
         print(f"[REG] argumento={argumento}")
-
-        # ---------------------------------------------------------
-        # COMPROBAR PUNTO ENTRE NOMBRE Y PAÍS
-        # ---------------------------------------------------------
 
         if "." not in argumento:
             await update.message.reply_text(
@@ -99,25 +95,15 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             )
             return
 
-        # ---------------------------------------------------------
-        # SEPARAR NOMBRE Y PAÍS
-        # ---------------------------------------------------------
-
         nombre, pais = argumento.rsplit(".", 1)
-
         nombre = nombre.strip()
         pais = pais.lower().strip()
 
         print(f"[REG] nombre={nombre}")
         print(f"[REG] pais={pais}")
 
-        # ---------------------------------------------------------
-        # VALIDAR PAÍS
-        # ---------------------------------------------------------
-
         if not es_pais_valido(pais):
             print(f"[REG] País inválido: {pais}")
-
             await update.message.reply_text(
                 f"❌ País no válido: *{pais}*\n\n"
                 "📋 *Países disponibles:*\n" +
@@ -128,33 +114,20 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         print("[REG] País válido")
 
-        # ---------------------------------------------------------
-        # COMPROBAR SI YA EXISTE EL USUARIO
-        # ---------------------------------------------------------
-
         if esta_registrado(user_id):
-
             print("[REG] El usuario ya existe en la base de datos")
-
             datos = obtener_datos(user_id)
-
             print(f"[REG] datos={datos}")
 
-            # Usuario con sesión activa
             if datos[5] == 1:
-
                 await update.message.reply_text(
                     f"⚠️ Ya estás registrado como "
                     f"*{datos[0]}* (ID: #{datos[1]}).",
                     parse_mode="Markdown"
                 )
                 return
-
-            # Usuario existente pero con sesión cerrada
             else:
-
                 print("[REG] Usuario existente con sesión cerrada")
-
                 if not usuario_tiene_pais(user_id):
                     print(f"[REG] Asignando país: {pais}")
                     set_pais(user_id, pais)
@@ -166,58 +139,26 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     f"🌎 País: {obtener_nombre(pais)}",
                     parse_mode="Markdown"
                 )
-
                 return
-
-        # ---------------------------------------------------------
-        # VALIDAR NOMBRE
-        # ---------------------------------------------------------
 
         print("[REG] Usuario no registrado")
         print("[REG] Validando nombre...")
 
         valido, error = validar_nombre(nombre)
-
-        print(
-            f"[REG] validar_nombre -> "
-            f"valido={valido}, error={error}"
-        )
+        print(f"[REG] validar_nombre -> valido={valido}, error={error}")
 
         if not valido:
-            await update.message.reply_text(
-                error,
-                parse_mode="Markdown"
-            )
+            await update.message.reply_text(error, parse_mode="Markdown")
             return
 
         print("[REG] Nombre válido")
-
-        # ---------------------------------------------------------
-        # REGISTRAR USUARIO
-        # ---------------------------------------------------------
-
         print("[REG] Ejecutando registrar()...")
 
-        id_interno = registrar(
-            user_id,
-            username,
-            nombre,
-            pais
-        )
-
+        id_interno = registrar(user_id, username, nombre, pais)
         print(f"[REG] registrar() -> id={id_interno}")
 
-        # ---------------------------------------------------------
-        # OBTENER NOMBRE DEL PAÍS
-        # ---------------------------------------------------------
-
         nombre_pais = obtener_nombre(pais)
-
         print(f"[REG] nombre_pais={nombre_pais}")
-
-        # ---------------------------------------------------------
-        # RESPUESTA AL USUARIO
-        # ---------------------------------------------------------
 
         await update.message.reply_text(
             f"✅ ¡Registro exitoso!\n\n"
@@ -229,38 +170,22 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode="Markdown"
         )
 
-        print("[REG] Mensaje de registro enviado correctamente")
+        # ─── Logro: Primeros pasos ─────────────────────────
+        if dar_logro(user_id, "primeros_pasos"):
+            await avisar_logro(context, user_id, "primeros_pasos")
 
-        # ---------------------------------------------------------
-        # NOTIFICAR A LOS DEMÁS USUARIOS
-        # ---------------------------------------------------------
+        print("[REG] Mensaje de registro enviado correctamente")
 
         texto_notif = (
             f"🆕 <b>Nuevo usuario registrado</b>\n"
             f"👤 <b>{nombre}</b>\n"
             f"🌎 Se unió desde: <b>{nombre_pais}</b>"
         )
-
-        await notificar_a_todos(
-            context,
-            user_id,
-            texto_notif
-        )
-
+        await notificar_a_todos(context, user_id, texto_notif)
         print("[REG] Notificaciones enviadas")
 
-    # -------------------------------------------------------------
-    # CAPTURAR CUALQUIER ERROR
-    # -------------------------------------------------------------
-
     except Exception as e:
-
-        print(
-            f"[REG ERROR] "
-            f"{type(e).__name__}: {e}"
-        )
-
-        # Intentar informar al usuario
+        print(f"[REG ERROR] {type(e).__name__}: {e}")
         try:
             await update.message.reply_text(
                 "❌ Ocurrió un error interno durante el registro.\n\n"
@@ -268,26 +193,16 @@ async def reg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"Detalle: `{e}`",
                 parse_mode="Markdown"
             )
-
         except Exception as e2:
-
-            print(
-                f"[REG ERROR AL RESPONDER] "
-                f"{type(e2).__name__}: {e2}"
-            )
+            print(f"[REG ERROR AL RESPONDER] {type(e2).__name__}: {e2}")
 
 
-async def setpais(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-) -> None:
-
+async def setpais(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
         await update.message.reply_text(
-            "❌ Debes registrarte primero con "
-            "`/reg nombre.pais`.",
+            "❌ Debes registrarte primero con `/reg nombre.pais`.",
             parse_mode="Markdown"
         )
         return
@@ -330,25 +245,17 @@ async def setpais(
     )
 
 
-async def unreg(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-) -> None:
-
+async def unreg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
-        await update.message.reply_text(
-            "❌ No tienes ninguna cuenta registrada."
-        )
+        await update.message.reply_text("❌ No tienes ninguna cuenta registrada.")
         return
 
     datos = obtener_datos(user_id)
 
     if datos[5] == 0:
-        await update.message.reply_text(
-            "ℹ️ Tu sesión ya estaba cerrada."
-        )
+        await update.message.reply_text("ℹ️ Tu sesión ya estaba cerrada.")
         return
 
     context.user_data["confirmacion"] = {
@@ -363,17 +270,11 @@ async def unreg(
     )
 
 
-async def deletereg(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-) -> None:
-
+async def deletereg(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
-        await update.message.reply_text(
-            "❌ No tienes ninguna cuenta registrada."
-        )
+        await update.message.reply_text("❌ No tienes ninguna cuenta registrada.")
         return
 
     context.user_data["confirmacion"] = {
@@ -388,11 +289,7 @@ async def deletereg(
     )
 
 
-async def confirmar_accion(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-) -> None:
-
+async def confirmar_accion(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.effective_user.id
 
     if "confirmacion" not in context.user_data:
@@ -404,73 +301,28 @@ async def confirmar_accion(
         return
 
     accion = context.user_data["confirmacion"]["accion"]
-
     datos = obtener_datos(user_id)
 
-    # ---------------------------------------------------------
-    # CONFIRMAR
-    # ---------------------------------------------------------
-
     if texto in [".si", ".sí"]:
-
-        # -----------------------------------------------------
-        # CERRAR SESIÓN
-        # -----------------------------------------------------
-
         if accion == "unreg":
-
             actualizar_sesion(user_id, 0)
-
             del context.user_data["confirmacion"]
-
             await update.message.reply_text(
                 f"👋 Sesión cerrada, *{datos[0]}*.",
                 parse_mode="Markdown"
             )
-
-            await notificar_a_todos(
-                context,
-                user_id,
-                f"👋 <b>{datos[0]}</b> cerró sesión."
-            )
-
+            await notificar_a_todos(context, user_id, f"👋 <b>{datos[0]}</b> cerró sesión.")
             raise ApplicationHandlerStop
-
-        # -----------------------------------------------------
-        # ELIMINAR CUENTA
-        # -----------------------------------------------------
 
         elif accion == "deletereg":
-
             nombre = datos[0]
-
             eliminar_usuario(user_id)
-
             del context.user_data["confirmacion"]
-
-            await update.message.reply_text(
-                "🗑️ Cuenta eliminada.",
-                parse_mode="Markdown"
-            )
-
-            await notificar_a_todos(
-                context,
-                user_id,
-                f"🗑️ <b>{nombre}</b> abandonó el bot."
-            )
-
+            await update.message.reply_text("🗑️ Cuenta eliminada.", parse_mode="Markdown")
+            await notificar_a_todos(context, user_id, f"🗑️ <b>{nombre}</b> abandonó el bot.")
             raise ApplicationHandlerStop
 
-    # ---------------------------------------------------------
-    # CANCELAR
-    # ---------------------------------------------------------
-
     elif texto == ".no":
-
         del context.user_data["confirmacion"]
-
-        await update.message.reply_text(
-            "✅ Cancelado."
-        )
-
+        await update.message.reply_text("✅ Cancelado.")
         raise ApplicationHandlerStop

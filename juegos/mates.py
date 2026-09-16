@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.logros import actualizar_stat, dar_logro, obtener_stats
+from core.misiones import sumar_progreso
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 300
@@ -247,29 +248,36 @@ async def terminar_mates(context, user_id, gano):
     terminar_partida(user_id)
     set_cooldown(user_id)
 
-    # ─── Logros ────────────────────────────────────────────
+    # Logros
     actualizar_stat(user_id, "partidas_jugadas", incremento=1)
+
+    # Misiones
+    completadas = sumar_progreso(user_id, "partida_jugada")
+    for m_id in completadas:
+        await avisar_mision(context, user_id, m_id)
 
     if gano:
         actualizar_tokens(user_id, config["premio_tokens"])
         subio = sumar_xp(user_id, config["premio_xp"])
 
-        # Stats para logros
         actualizar_stat(user_id, "mates_ganadas", incremento=1)
         actualizar_stat(user_id, "mates_seguidas", incremento=1)
-        actualizar_stat(user_id, "trivia_seguidas", valor=0)  # resetea la de trivia
+        actualizar_stat(user_id, "trivia_seguidas", valor=0)
 
         stats = obtener_stats(user_id)
 
-        # Logro: Matemático (15 mates ganadas)
-        if stats[2] >= 15:  # mates_ganadas
+        if stats[2] >= 15:
             if dar_logro(user_id, "matematico"):
                 await avisar_logro(context, user_id, "matematico")
 
-        # Logro: Cerebrito (10 seguidas mates+trivia)
-        if stats[8] + stats[9] >= 10:  # mates_seguidas + trivia_seguidas
+        if stats[8] + stats[9] >= 10:
             if dar_logro(user_id, "cerebrito"):
                 await avisar_logro(context, user_id, "cerebrito")
+
+        # Misiones (mates ganada)
+        completadas = sumar_progreso(user_id, "mates_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
 
         texto = (
             f"🎉 *¡Mates completadas!*\n"
@@ -280,7 +288,6 @@ async def terminar_mates(context, user_id, gano):
             texto += f"\n⭐ ¡Nivel {subio}!"
         texto += "\n⏳ Cooldown: 5 min"
     else:
-        # Al perder, resetear la racha de mates
         actualizar_stat(user_id, "mates_seguidas", valor=0)
         texto = f"😢 *Partida terminada*\n✅ Aciertos: {partida['indice']}/5\n⏳ Cooldown: 7 min"
 
@@ -292,7 +299,6 @@ async def terminar_mates(context, user_id, gano):
 
 
 async def avisar_logro(context, user_id, clave):
-    """Avisa al usuario que ha desbloqueado un logro."""
     from core.logros import LOGROS
     info = LOGROS.get(clave)
     if not info:
@@ -305,6 +311,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

@@ -1,578 +1,338 @@
-import sqlite3
-import random
-import time
-import logging
+import os
+from dotenv import load_dotenv
 
 from telegram import Update
-from telegram.ext import ContextTypes, ApplicationHandlerStop
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+    ApplicationHandlerStop,
+    CallbackQueryHandler,
+)
 
-from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
-from core.sesiones import iniciar_partida, terminar_partida
-from core.misiones import sumar_progreso
+from core.db import (
+    init_db,
+    esta_registrado,
+    obtener_datos,
+    usuario_tiene_pais,
+    actualizar_ultima_actividad,
+)
+
+from core.sesiones import (
+    init_sesiones_db,
+    obtener_juego,
+)
+
+from core.paises import lista_paises_texto
+
+from core.logros import (
+    init_logros_db,
+    LOGROS,
+    logros_de_usuario,
+    dar_logro,
+)
+
+from core.amigos import init_amigos_db
+from core.misiones import init_misiones_db
+
+from comandos.registro import (
+    reg,
+    unreg,
+    deletereg,
+    confirmar_accion,
+    setpais,
+)
+
+from comandos.perfil import (
+    perfil,
+    tokens_cmd,
+    nivel_cmd,
+    rango_cmd,
+    userslist,
+)
+
+from comandos.tutorial import tutorial
+from comandos.chat import chatm, msp, darTokens
+from comandos.top import top
+from comandos.stats import stats
+from comandos.sugerencia import sugerencia
+from comandos.help import help_command, help_botones
+from comandos.version import version, setversion
+from comandos.logros import logros
+from comandos.reclamarlogros import reclamarlogros
+
+from comandos.amigos import (
+    amigo,
+    amigos,
+    solicitudes,
+)
+
+from comandos.amigos_top import top_amigos
+
+from comandos.amigos_invitar import (
+    invitar,
+    responder_invitacion,
+    revisar_invitaciones_expiradas,
+)
+
+from comandos.misiones import misiones
+
+from admin import (
+    anunciar,
+    giveTokens,
+    giveXP,
+    removeTokens,
+    removeXP,
+)
+
+from banco.banco import (
+    init_banco_db,
+    bank,
+    depositar,
+    retirar,
+)
+
+from juegos.menu import actividades
+from juegos.ruleta import (
+    init_juegos_db,
+    ruleta,
+)
+
+from juegos.apuestas import (
+    init_apuestas_db,
+    apostar,
+    cancelar,
+    revisar_expiradas,
+)
+
+from juegos.mates import (
+    init_mates_db,
+    mates,
+    responder as responder_mates,
+    revisar_timeouts as revisar_timeouts_mates,
+)
+
+from juegos.dados import (
+    init_dados_db,
+    dados,
+)
+
+from juegos.memoria import (
+    init_memoria_db,
+    memoria,
+    responder_memoria,
+    revisar_timeouts_memoria,
+)
+
+from juegos.palabras import (
+    init_palabras_db,
+    palabras,
+    responder_palabras,
+    revisar_timeouts_palabras,
+)
+
+from juegos.funks import (
+    init_funks_db,
+    funks,
+    responder_funks,
+    revisar_timeouts_funks,
+)
+
+from juegos.trivia import (
+    init_trivia_db,
+    trivia,
+    responder_trivia,
+    revisar_timeouts_trivia,
+)
+
+from eventos.eventos import (
+    init_eventos_db,
+    eventos,
+    ver_evento,
+    asistir,
+    atras,
+    comenzar,
+    cancelar_evento,
+    addevent,
+    removeevent,
+    editevent,
+    revisar_eventos_expirados,
+    revisar_eventos_iniciando,
+    revisar_descalificados,
+)
+
+from eventos.reclamar import (
+    init_reclamar_db,
+    reclamar,
+)
+
+
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
 
 
 # ============================================================
-# CONFIGURACIÓN
+# COMANDOS VÁLIDOS
 # ============================================================
 
-COOLDOWN_PERDIDA = 420       # 7 minutos
-COOLDOWN_VICTORIA = 600      # 10 minutos
-TIEMPO = 40                  # 40 segundos por canción
-CANCIONES_POR_PARTIDA = 3
+COMANDOS_VALIDOS = [
+    "/start",
+    "/help",
+    "/reg",
+    "/unreg",
+    "/deletereg",
 
-# Si una sesión de SQLite lleva demasiado tiempo sin actualizarse
-# y ya no existe la partida en RAM, se considera huérfana.
-TIEMPO_SESION_HUERFANA = TIEMPO * 2 + 5
+    "/perfil",
+    "/tokens",
+    "/nivel",
+    "/rango",
+    "/userslist",
 
-logger = logging.getLogger(__name__)
+    "/actividades",
+    "/juegos",
+    "/ruleta",
+    "/apostar",
+    "/cancelar",
 
+    "/mates",
+    "/dados",
+    "/memoria",
+    "/trivia",
+    "/palabras",
+    "/funks",
 
-FUNKS = [
-    ("Na festa do fim de semana, sahur chegou", "passo bem solto", "atlxs"),
-    ("Vida la vida es un carrusel", "montagem tomada", "josh gomez"),
-    ("A mira la luna, lalalalalalala", "luna bala", "yb wasg'ood, ariis, mc pr"),
-    ("Hay mi gatito miau miau", "montagem miau", "evelyn villabona"),
-    ("Do Prada, no Prada\nDo pai da acelerada", "acelerada", "mxzi"),
-    ("Clima perfeito, noite enluarada", "montagem bailao", "atlxs, mc jhey"),
-    ("E-Ela desce, ela sobe, no baile e pressao", "no batidao", "zxkai"),
-    ("Please, Speed, I need this, my mom", "kinda homeless", "anitor, hugeboy, vlxnor"),
-    ("Quando essa tocar, tu vai se lembrar\nDe que eu era um bosta e tu nao queria me pegar", "yara yara", "mc wm, mc lan"),
-    ("Uh, ah-ah, toma, toma", "esse cara", "sayfalse"),
-    ("Y pensaron que me iba a caer\nPero no\nDe su mala la vibra, a mi me protegio", "funk do bounce", "ariis"),
-    ("No se el dia, la-la-la, la-la-la, la\nSolo una noche\nLa-la-la, la-la-la, la-la-la, la-la-la, la", "los voltage", "sayfalse"),
-    ("Olha so minha ponto 30\nTu nunca prestou atencao", "mente ma", "nakama"),
-    ("Vem, vem, foder", "vem vem", "jimilton"),
-    ("Ve-vem no pique", "madrugada", "ncts"),
-    ("Mala fama, mala fama", "montagem coma", "adromeda"),
-    ("D-D-D-D-D-D-DJ-DJ heapper, e-e-e-e-e o", "montagem vozes", "heapper, mc luizinho, dj juan"),
-    ("Teus teus do funk. Manda sim, manda sim, manda, manda, manda sim.", "montagem escuro", "phonk around"),
-    ("E vou 'xonar\nMas nao vou com quanta som", "montagem xonada", "dj javi"),
-    ("O, novinha, taradinha, danadinha, gostosinha", "montagem supersonic", "mc jaja, khaos, jmilton"),
-    ("Bailalo (y), gozalo (y)\nComo lo canto y lo siento yo (y como?)", "gozalo", "ariis"),
-    ("Vento sussurra historias sem fim", "montagem rugada", "cape, sayfalse, jxndro"),
-    ("Fez promessa, jurou lealdade\nMas mostrou que so viveu de falsidade", "matadora", "dj asul"),
-    ("Voce fez a escolha\nAgora aguenta a consequencia", "vair vair trair", "dj asul"),
-    ("Luz roja, no para, que el tiempo nos habla", "luz roja", "bxkq"),
-    ("bate, bate, bate, bate\nFirme, firme, firme, firme", "montagem pegadora", "chilx, waa, rubikdice"),
-    ("Tiki-tiki-tiki\nMa-te-te-ki-ta-ka-ta", "tiki-tiki", "qmiir, salima chica"),
-    ("Run to me, confess your love, at least just say it", "confess your love", "jiandro"),
-    ("Cheguei no baile, luzes a piscar", "voce na mira", "hwungii, dj vgk1"),
+    "/tutorial",
+
+    "/bank",
+    "/depositar",
+    "/retirar",
+
+    "/anunciar",
+    "/giveTokens",
+    "/giveXP",
+    "/removeTokens",
+    "/removeXP",
+
+    "/reclamar",
+
+    "/eventos",
+    "/addevent",
+    "/removeevent",
+    "/editevent",
+
+    "/setpais",
+
+    "/chatm",
+    "/msp",
+    "/darTokens",
+
+    "/top",
+    "/stats",
+
+    "/sugerencia",
+
+    "/version",
+    "/setversion",
+
+    "/logros",
+    "/reclamarlogros",
+
+    "/amigo",
+    "/amigos",
+    "/solicitudes",
+    "/invitar",
+
+    "/misiones",
 ]
 
-partidas_funks = {}
-
-
-
-# ============================================================
-# BASE DE DATOS
-# ============================================================
-
-def init_funks_db():
-    """Crea/migra la tabla de cooldown de Funks."""
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        c = conn.cursor()
-
-        c.execute("""
-            CREATE TABLE IF NOT EXISTS funks_cooldown (
-                user_id INTEGER PRIMARY KEY,
-                ultima_partida REAL,
-                duracion INTEGER DEFAULT 600
-            )
-        """)
-
-        # Migración para instalaciones que ya tenían la tabla antigua.
-        c.execute("PRAGMA table_info(funks_cooldown)")
-        columnas = {fila[1] for fila in c.fetchall()}
-
-        if "duracion" not in columnas:
-            c.execute(
-                "ALTER TABLE funks_cooldown "
-                "ADD COLUMN duracion INTEGER DEFAULT 600"
-            )
-
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def get_cooldown(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        c = conn.cursor()
-        c.execute(
-            "SELECT ultima_partida, duracion "
-            "FROM funks_cooldown WHERE user_id = ?",
-            (user_id,),
-        )
-        r = c.fetchone()
-
-        if not r:
-            return 0, COOLDOWN_VICTORIA
-
-        ultima = r[0] or 0
-        duracion = r[1] or COOLDOWN_VICTORIA
-        return ultima, duracion
-    finally:
-        conn.close()
-
-
-def set_cooldown(user_id, gano=False):
-    """Guarda el cooldown correspondiente a victoria o derrota."""
-    duracion = COOLDOWN_VICTORIA if gano else COOLDOWN_PERDIDA
-
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        c = conn.cursor()
-        c.execute(
-            """
-            INSERT OR REPLACE INTO funks_cooldown
-            (user_id, ultima_partida, duracion)
-            VALUES (?, ?, ?)
-            """,
-            (user_id, time.time(), duracion),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def tiempo_restante(user_id):
-    ultima, duracion = get_cooldown(user_id)
-
-    if ultima == 0:
-        return 0
-
-    return max(0, int(duracion - (time.time() - ultima)))
-
-
-def formatear_tiempo(seg):
-    return f"{seg // 60}m {seg % 60}s"
+COMANDOS_VALIDOS_LOWER = [
+    comando.lower()
+    for comando in COMANDOS_VALIDOS
+]
 
 
 # ============================================================
-# UTILIDADES
+# COMANDOS QUE PUEDEN USARSE DURANTE UNA PARTIDA
 # ============================================================
 
-def normalizar(texto):
-    texto = str(texto).lower().strip()
+COMANDOS_PERMITIDOS_EN_PARTIDA = {
+    "/start",
+    "/cancelar",
 
-    for k, v in {
-        "á": "a",
-        "é": "e",
-        "í": "i",
-        "ó": "o",
-        "ú": "u",
-        "ñ": "n",
-        "ç": "c",
-    }.items():
-        texto = texto.replace(k, v)
+    # Perfil / consulta
+    "/perfil",
+    "/tokens",
+    "/nivel",
+    "/rango",
+    "/userslist",
 
-    return texto
+    # Social
+    "/top",
+    "/stats",
+    "/sugerencia",
+
+    # Amigos
+    "/amigo",
+    "/amigos",
+    "/solicitudes",
+    "/invitar",
+
+    # Misiones / logros
+    "/misiones",
+    "/logros",
+    "/reclamarlogros",
+
+    # Ayuda / información
+    "/help",
+    "/tutorial",
+    "/version",
+}
 
 
-def autores_lista(autores):
-    return [a.strip() for a in autores.split(",") if a.strip()]
+# ============================================================
+# AVISAR LOGRO
+# ============================================================
 
+async def avisar_logro(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    clave: str,
+) -> None:
 
-def es_correcta(respuesta, nombre, autores):
-    resp_norm = normalizar(respuesta)
+    info = LOGROS.get(clave)
 
-    if resp_norm == normalizar(nombre):
-        return True
+    if not info:
+        return
 
-    for autor in autores_lista(autores):
-        if resp_norm == normalizar(autor):
-            return True
-
-    return False
-
-
-async def enviar_mensaje_seguro(context, chat_id, texto, **kwargs):
-    """Envía un mensaje sin dejar que un fallo de Telegram rompa la partida."""
     try:
         await context.bot.send_message(
-            chat_id=chat_id,
-            text=texto,
-            **kwargs,
-        )
-        return True
-    except Exception:
-        logger.exception(
-            "Error enviando mensaje de Funks a chat_id=%s",
-            chat_id,
-        )
-        return False
-
-
-def _eliminar_sesion_directamente(user_id):
-    """
-    Último recurso para limpiar una sesión que haya quedado atascada.
-
-    Normalmente se usa terminar_partida(). Esta función solo actúa
-    si SQLite no pudo limpiarse por el camino normal.
-    """
-    for intento in range(3):
-        conn = None
-        try:
-            conn = sqlite3.connect(DB_PATH, timeout=5)
-            c = conn.cursor()
-            c.execute(
-                "DELETE FROM sesiones WHERE user_id = ?",
-                (user_id,),
-            )
-            conn.commit()
-            return True
-        except Exception:
-            logger.exception(
-                "Intento %s/3: no pude limpiar sesión de user_id=%s",
-                intento + 1,
-                user_id,
-            )
-            time.sleep(0.15)
-        finally:
-            if conn is not None:
-                conn.close()
-
-    return False
-
-
-def _terminar_sesion_segura(user_id):
-    """Limpia la sesión normal y usa un fallback si falla."""
-    try:
-        terminar_partida(user_id)
-        return True
-    except Exception:
-        logger.exception(
-            "terminar_partida() falló para user_id=%s. "
-            "Intentando limpieza directa.",
-            user_id,
-        )
-        return _eliminar_sesion_directamente(user_id)
-
-
-# ============================================================
-# INICIAR FUNKS
-# ============================================================
-
-async def funks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.effective_user.id
-
-    datos = obtener_datos(user_id)
-
-    if datos is None or datos[5] != 1:
-        await update.message.reply_text("🔒 Debes estar registrado.")
-        return
-
-    if user_id in partidas_funks:
-        await update.message.reply_text(
-            "⚠️ Ya tienes una partida en curso."
-        )
-        return
-
-    restante = tiempo_restante(user_id)
-
-    if restante > 0:
-        await update.message.reply_text(
-            f"⏳ Espera *{formatear_tiempo(restante)}*.",
-            parse_mode="Markdown",
-        )
-        return
-
-    seleccionadas = random.sample(
-        FUNKS,
-        CANCIONES_POR_PARTIDA,
-    )
-
-    partida = {
-        "canciones": seleccionadas,
-        "indice": 0,
-        "aciertos": 0,
-        "chat_id": update.effective_chat.id,
-        "hora_inicio": time.time(),
-    }
-
-    # Primero creamos la sesión persistente.
-    try:
-        iniciar_partida(user_id, "funks")
-    except Exception:
-        logger.exception(
-            "No pude crear la sesión de Funks para user_id=%s",
-            user_id,
-        )
-        await update.message.reply_text(
-            "⚠️ No pude iniciar la partida. Inténtalo de nuevo."
-        )
-        return
-
-    # Solo después de crear la sesión persistente guardamos la partida en RAM.
-    partidas_funks[user_id] = partida
-
-    try:
-        await update.message.reply_text(
-            "🎵 *ADIVINA LA CANCIÓN (BETA)*\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            "⚠️ Versión beta, puede tener errores.\n\n"
-            "Te muestro la letra de un funk.\n"
-            "Responde con `.nombre` o `.autor`\n\n"
-            f"⏱️ {TIEMPO}s por canción. {CANCIONES_POR_PARTIDA} canciones.\n"
-            "Premio: 40 tokens + 45 XP",
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
             parse_mode="Markdown",
         )
 
-        await enviar_cancion(context, user_id)
-
     except Exception:
-        logger.exception(
-            "Error iniciando la partida de Funks para user_id=%s",
-            user_id,
-        )
-
-        # No dejamos al usuario bloqueado si falló el inicio.
-        partidas_funks.pop(user_id, None)
-        _terminar_sesion_segura(user_id)
+        pass
 
 
 # ============================================================
-# ENVIAR CANCIÓN
+# AVISAR MISIÓN
 # ============================================================
 
-async def enviar_cancion(context, user_id):
-    partida = partidas_funks.get(user_id)
-
-    if partida is None:
-        return False
-
-    idx = partida["indice"]
-
-    if idx >= CANCIONES_POR_PARTIDA:
-        return False
-
-    letra, nombre, autores = partida["canciones"][idx]
-
-    # Este timestamp controla los 40 segundos de ESTA canción.
-    ahora = time.time()
-    partida["hora_inicio"] = ahora
-
-    # Actualizamos también la sesión SQLite.
-    #
-    # Esto es importante si Railway tiene más de un proceso:
-    # la sesión persistente refleja cuándo comenzó la canción actual.
-    try:
-        iniciar_partida(user_id, "funks")
-    except Exception:
-        logger.exception(
-            "No pude actualizar la sesión de Funks para user_id=%s",
-            user_id,
-        )
-
-    enviada = await enviar_mensaje_seguro(
-        context,
-        partida["chat_id"],
-        (
-            f"🎵 *Canción {idx + 1}/{CANCIONES_POR_PARTIDA}*\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            f"📝 *Letra:*\n_{letra}_\n\n"
-            f"⏱️ {TIEMPO}s. `.nombre` o `.autor`"
-        ),
-        parse_mode="Markdown",
-    )
-
-    return enviada
-
-
-# ============================================================
-# RESPUESTAS
-# ============================================================
-
-async def responder_funks(
-    update: Update,
+async def avisar_mision(
     context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    m_id: str,
 ) -> None:
-    user_id = update.effective_user.id
 
-    partida = partidas_funks.get(user_id)
-
-    if partida is None:
-        return
-
-    if not update.message or not update.message.text:
-        return
-
-    texto = update.message.text.strip()
-
-    if not texto.startswith("."):
-        return
-
-    respuesta = texto[1:].strip()
-
-    if not respuesta:
-        raise ApplicationHandlerStop
-
-    indice = partida.get("indice", 0)
-
-    if indice >= CANCIONES_POR_PARTIDA:
-        await terminar_funks(context, user_id, gano=False)
-        raise ApplicationHandlerStop
-
-    letra, nombre, autores = partida["canciones"][indice]
-
-    if es_correcta(respuesta, nombre, autores):
-        partida["aciertos"] += 1
-
-        await enviar_mensaje_seguro(
-            context,
-            update.effective_chat.id,
-            f"✅ ¡Correcto! Era *{nombre}* ({autores}).",
-            parse_mode="Markdown",
-        )
-
-        partida["indice"] += 1
-
-        if partida["indice"] >= CANCIONES_POR_PARTIDA:
-            await terminar_funks(
-                context,
-                user_id,
-                gano=True,
-            )
-        else:
-            await enviar_cancion(
-                context,
-                user_id,
-            )
-
-    else:
-        await enviar_mensaje_seguro(
-            context,
-            update.effective_chat.id,
-            f"❌ Era *{nombre}* de *{autores}*.",
-            parse_mode="Markdown",
-        )
-
-        await terminar_funks(
-            context,
-            user_id,
-            gano=False,
-        )
-
-    # Evita que otros handlers de mensajes con "." procesen la respuesta.
-    raise ApplicationHandlerStop
-
-
-# ============================================================
-# TERMINAR PARTIDA
-# ============================================================
-
-async def terminar_funks(context, user_id, gano):
-    """
-    Termina una partida de forma segura.
-
-    MUY IMPORTANTE:
-    la partida se elimina de RAM y la sesión SQLite se limpia
-    antes de ejecutar recompensas/misiones que podrían fallar.
-    Así nunca queda una partida fantasma bloqueando al usuario.
-    """
-
-    # pop() es idempotente: si otro proceso/llamada ya la eliminó,
-    # simplemente no hacemos nada.
-    partida = partidas_funks.pop(user_id, None)
-
-    if partida is None:
-        # Aunque no exista en RAM, limpiamos SQLite por seguridad.
-        _terminar_sesion_segura(user_id)
-        return
-
-    # Guardamos el cooldown y limpiamos la sesión SIEMPRE.
-    try:
-        set_cooldown(user_id, gano=gano)
-    except Exception:
-        logger.exception(
-            "No pude guardar cooldown de Funks para user_id=%s",
-            user_id,
-        )
-
-    _terminar_sesion_segura(user_id)
-
-    # A partir de aquí, aunque falle una recompensa, el usuario
-    # ya no queda atrapado en la partida.
-
-    if gano:
-        try:
-            actualizar_tokens(user_id, 40)
-        except Exception:
-            logger.exception(
-                "Error dando tokens de Funks a user_id=%s",
-                user_id,
-            )
-
-        try:
-            subio = sumar_xp(user_id, 45)
-        except Exception:
-            logger.exception(
-                "Error dando XP de Funks a user_id=%s",
-                user_id,
-            )
-            subio = None
-
-        texto = (
-            f"🎉 *¡FUNKS COMPLETADOS!*\n"
-            f"✅ {CANCIONES_POR_PARTIDA}/{CANCIONES_POR_PARTIDA}\n"
-            "💰 +40 tokens\n"
-            "✨ +45 XP"
-        )
-
-        if subio:
-            texto += f"\n⭐ ¡Nivel {subio}!"
-
-        texto += "\n⏳ Cooldown: 10 min"
-
-        # Misiones: si una misión falla, no debe romper el final de partida.
-        try:
-            completadas = sumar_progreso(
-                user_id,
-                "funks_completada",
-            )
-        except Exception:
-            logger.exception(
-                "Error actualizando misión de Funks para user_id=%s",
-                user_id,
-            )
-            completadas = []
-
-        for m_id in completadas:
-            try:
-                await avisar_mision(
-                    context,
-                    user_id,
-                    m_id,
-                )
-            except Exception:
-                logger.exception(
-                    "Error avisando misión %s a user_id=%s",
-                    m_id,
-                    user_id,
-                )
-
-    else:
-        texto = (
-            "😢 *FALLIDO*\n"
-            f"✅ Aciertos: {partida['aciertos']}/{CANCIONES_POR_PARTIDA}\n"
-            "⏳ Cooldown: 7 min"
-        )
-
-    await enviar_mensaje_seguro(
-        context,
-        partida["chat_id"],
-        texto,
-        parse_mode="Markdown",
-    )
-
-
-# ============================================================
-# AVISO DE MISIÓN
-# ============================================================
-
-async def avisar_mision(context, user_id, m_id):
     from core.misiones import MISIONES
 
     info = MISIONES.get(m_id)
@@ -585,147 +345,893 @@ async def avisar_mision(context, user_id, m_id):
     if info["xp"] > 0:
         recompensa += f" +{info['xp']}⭐"
 
-    await enviar_mensaje_seguro(
-        context,
-        user_id,
-        (
-            "🎯 *¡MISIÓN COMPLETADA!*\n"
-            "━━━━━━━━━━━━━━━━━━━\n"
-            f"✅ {info['texto']}\n"
-            f"🎁 {recompensa}"
-        ),
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
+            ),
+            parse_mode="Markdown",
+        )
+
+    except Exception:
+        pass
+
+
+# ============================================================
+# RASTREAR ACTIVIDAD
+# ============================================================
+
+async def rastrear_actividad(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+
+    if update.effective_user:
+
+        try:
+            actualizar_ultima_actividad(
+                update.effective_user.id
+            )
+
+        except Exception:
+            pass
+
+
+# ============================================================
+# BLOQUEAR COMANDOS DURANTE PARTIDAS
+# ============================================================
+
+async def bloquear_comandos_en_partida(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+
+    if not update.message:
+        return
+
+    if not update.message.text:
+        return
+
+    user = update.effective_user
+
+    if not user:
+        return
+
+    user_id = user.id
+
+    juego = obtener_juego(user_id)
+
+    # No está jugando
+    if juego is None:
+        return
+
+    texto = update.message.text.strip()
+
+    # Solo nos interesan mensajes que empiecen por /
+    if not texto.startswith("/"):
+        return
+
+    # Obtener solamente el comando.
+    #
+    # Ejemplo:
+    # /top
+    # /top@ReidiStudiosBot
+    # /amigo Juan
+    #
+    # Todos se convierten en:
+    # /top
+    comando = texto.split()[0].split("@")[0].lower()
+
+    # Comandos permitidos mientras juega
+    if comando in COMANDOS_PERMITIDOS_EN_PARTIDA:
+        return
+
+    # Si es otro comando, bloquearlo.
+    await update.message.reply_text(
+        f"⚠️ Estás en una partida de *{juego}*.\n\n"
+        f"Termínala primero para usar ese comando.",
         parse_mode="Markdown",
+    )
+
+    raise ApplicationHandlerStop
+
+
+# ============================================================
+# START
+# ============================================================
+
+async def start(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+
+    await update.message.reply_text(
+        "¡Hola! Soy ReidiStudiosBot.\n\n"
+        "Regístrate con:\n"
+        "/reg nombre.pais\n\n"
+        "Ejemplo:\n"
+        "/reg Juan.cuba\n\n"
+        "Usa /help para ver todos los comandos."
     )
 
 
 # ============================================================
-# LIMPIEZA DE SESIONES HUÉRFANAS
+# VERIFICAR REGISTRO
 # ============================================================
 
-def limpiar_sesiones_funks_huerfanas():
-    """
-    Limpia sesiones de Funks que quedaron en SQLite pero ya no existen
-    en partidas_funks.
+async def verificar_registro(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
 
-    Esto sirve especialmente después de un reinicio de Railway o si
-    había más de un proceso ejecutando el bot.
-    """
-    ahora = time.time()
-    conn = None
+    if not update.message:
+        return
 
-    try:
-        conn = sqlite3.connect(DB_PATH, timeout=5)
-        c = conn.cursor()
+    if not update.message.text:
+        return
 
-        c.execute(
-            """
-            SELECT user_id, inicio
-            FROM sesiones
-            WHERE juego = ?
-            """,
-            ("funks",),
+    texto = update.message.text.strip()
+
+    if not texto.startswith("/"):
+        return
+
+    comando = (
+        texto
+        .split()[0]
+        .split("@")[0]
+        .lower()
+    )
+
+    # ========================================================
+    # COMANDO NO RECONOCIDO
+    # ========================================================
+
+    if comando not in COMANDOS_VALIDOS_LOWER:
+
+        await update.message.reply_text(
+            f"❌ Comando no reconocido: `{comando}`\n\n"
+            "Usa /help.",
+            parse_mode="Markdown",
         )
 
-        sesiones = c.fetchall()
+        raise ApplicationHandlerStop
 
-        eliminadas = 0
+    # ========================================================
+    # COMANDOS LIBRES
+    # ========================================================
 
-        for user_id, inicio in sesiones:
-            # Si la partida existe en este proceso, está controlada por
-            # revisar_timeouts_funks y no debe tocarse aquí.
-            if user_id in partidas_funks:
-                continue
+    comandos_libres = {
+        "/start",
+        "/help",
+        "/reg",
+        "/unreg",
+        "/deletereg",
+        "/tutorial",
+        "/setpais",
+        "/version",
+    }
 
-            if inicio is None:
-                continue
+    if comando in comandos_libres:
+        return
 
-            if ahora - inicio >= TIEMPO_SESION_HUERFANA:
-                c.execute(
-                    "DELETE FROM sesiones WHERE user_id = ?",
-                    (user_id,),
-                )
-                eliminadas += 1
+    # ========================================================
+    # VERIFICAR USUARIO
+    # ========================================================
 
-                logger.warning(
-                    "Sesión huérfana de Funks eliminada: user_id=%s",
-                    user_id,
-                )
+    user_id = update.effective_user.id
 
-        conn.commit()
+    if not esta_registrado(user_id):
 
-        if eliminadas:
-            logger.info(
-                "Limpieza Funks: %s sesión(es) huérfana(s) eliminada(s).",
-                eliminadas,
+        await update.message.reply_text(
+            "🔒 Debes registrarte primero.\n\n"
+            "Usa: /reg nombre.pais"
+        )
+
+        raise ApplicationHandlerStop
+
+    datos = obtener_datos(user_id)
+
+    if datos is None:
+        await update.message.reply_text(
+            "❌ No se pudieron obtener tus datos."
+        )
+
+        raise ApplicationHandlerStop
+
+    if datos[5] == 0:
+
+        await update.message.reply_text(
+            "🔒 Sesión cerrada.\n\n"
+            "Usa /reg."
+        )
+
+        raise ApplicationHandlerStop
+
+    # ========================================================
+    # VERIFICAR PAÍS
+    # ========================================================
+
+    if not usuario_tiene_pais(user_id):
+
+        await update.message.reply_text(
+            "🌎 *Debes configurar tu país*\n\n"
+            "Usa: `/setpais pais`\n\n"
+            "Ejemplo:\n"
+            "`/setpais cuba`\n\n"
+            "📋 *Países disponibles:*\n"
+            + lista_paises_texto(),
+            parse_mode="Markdown",
+        )
+
+        raise ApplicationHandlerStop
+
+    # ========================================================
+    # ESTADÍSTICA DE COMANDOS UTILIZADOS
+    # ========================================================
+
+    from core.logros import (
+        obtener_stats,
+        actualizar_stat,
+    )
+
+    stats_usuario = obtener_stats(user_id)
+
+    comandos_usados = (
+        stats_usuario[10]
+        if stats_usuario[10]
+        else ""
+    )
+
+    comandos_lista = (
+        comandos_usados.split(",")
+        if comandos_usados
+        else []
+    )
+
+    if comando not in comandos_lista:
+
+        if comandos_usados:
+            nuevos = (
+                comandos_usados
+                + ","
+                + comando
             )
+        else:
+            nuevos = comando
 
-    except Exception:
-        logger.exception(
-            "Error limpiando sesiones huérfanas de Funks."
+        actualizar_stat(
+            user_id,
+            "comandos_usados",
+            valor=nuevos,
         )
 
-    finally:
-        if conn is not None:
-            conn.close()
+        total_distintos = len(
+            set(nuevos.split(","))
+        )
+
+        if total_distintos >= 15:
+
+            if dar_logro(
+                user_id,
+                "curioso",
+            ):
+
+                await avisar_logro(
+                    context,
+                    user_id,
+                    "curioso",
+                )
 
 
 # ============================================================
-# TIMEOUTS
+# MAIN
 # ============================================================
 
-async def revisar_timeouts_funks(context) -> None:
-    """
-    Revisa cada partida activa.
+def main() -> None:
 
-    La JobQueue puede ejecutar esta función cada 10 segundos.
-    El timeout real sigue siendo TIEMPO = 40 segundos.
-    """
-    ahora = time.time()
+    # ========================================================
+    # BASES DE DATOS
+    # ========================================================
 
-    try:
-        for user_id, partida in list(partidas_funks.items()):
+    init_db()
+    init_sesiones_db()
+    init_banco_db()
+    init_juegos_db()
+    init_apuestas_db()
+    init_mates_db()
+    init_dados_db()
+    init_memoria_db()
+    init_trivia_db()
+    init_palabras_db()
+    init_funks_db()
+    init_eventos_db()
+    init_reclamar_db()
+    init_logros_db()
+    init_amigos_db()
+    init_misiones_db()
 
-            try:
-                hora_inicio = float(partida.get("hora_inicio", ahora))
-            except (TypeError, ValueError):
-                hora_inicio = ahora
+    # ========================================================
+    # APPLICATION
+    # ========================================================
 
-            transcurrido = ahora - hora_inicio
+    app = (
+        Application
+        .builder()
+        .token(TOKEN)
+        .build()
+    )
 
-            if transcurrido >= TIEMPO:
-                logger.info(
-                    "Timeout de Funks: user_id=%s, %.1fs transcurridos.",
-                    user_id,
-                    transcurrido,
-                )
+    # ========================================================
+    # JOB QUEUE
+    # ========================================================
 
-                await enviar_mensaje_seguro(
-                    context,
-                    partida["chat_id"],
-                    "⏰ ¡Se acabó el tiempo!",
-                )
+    if app.job_queue is None:
 
-                # terminar_funks elimina primero el estado de RAM y
-                # después limpia SQLite, por lo que no queda bloqueado
-                # aunque falle una recompensa o un mensaje.
-                await terminar_funks(
-                    context,
-                    user_id,
-                    gano=False,
-                )
-
-    except Exception:
-        # Una partida problemática nunca debe impedir que el job vuelva
-        # a ejecutarse en la siguiente ronda.
-        logger.exception(
-            "Error general revisando timeouts de Funks."
+        print(
+            "⚠️ ADVERTENCIA: job_queue es None. "
+            "Revisa requirements.txt tenga [job-queue]"
         )
 
-    # Fallback para sesiones SQLite que sobrevivieron a un reinicio
-    # o pertenecen a otro proceso y ya quedaron huérfanas.
-    try:
-        limpiar_sesiones_funks_huerfanas()
-    except Exception:
-        logger.exception(
-            "Error en la limpieza de sesiones huérfanas de Funks."
+    else:
+
+        app.job_queue.run_repeating(
+            revisar_expiradas,
+            interval=30,
+            first=10,
         )
+
+        app.job_queue.run_repeating(
+            revisar_timeouts_mates,
+            interval=10,
+            first=10,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_timeouts_memoria,
+            interval=10,
+            first=10,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_timeouts_trivia,
+            interval=10,
+            first=10,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_timeouts_palabras,
+            interval=10,
+            first=10,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_timeouts_funks,
+            interval=10,
+            first=10,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_eventos_expirados,
+            interval=60,
+            first=30,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_eventos_iniciando,
+            interval=30,
+            first=15,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_descalificados,
+            interval=30,
+            first=30,
+        )
+
+        app.job_queue.run_repeating(
+            revisar_invitaciones_expiradas,
+            interval=30,
+            first=30,
+        )
+
+        print(
+            "✅ JobQueue configurado "
+            "con 10 tareas programadas"
+        )
+
+    # ========================================================
+    # ACTIVIDAD
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            rastrear_actividad,
+        ),
+        group=-100,
+    )
+
+    # ========================================================
+    # BLOQUEO DURANTE PARTIDAS
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            bloquear_comandos_en_partida,
+        ),
+        group=-10,
+    )
+
+    # ========================================================
+    # CONFIRMACIONES
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(
+                r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"
+            ),
+            confirmar_accion,
+        ),
+        group=-5,
+    )
+
+    # ========================================================
+    # EVENTOS
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(
+                r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"
+            ),
+            comenzar,
+        ),
+        group=-4,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(
+                r"^\.[cC][aA][nN][cC][eE][lL][aA][rR]$"
+            ),
+            cancelar_evento,
+        ),
+        group=-4,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(
+                r"^\.[aA][sS][iI][sS][tT][iI][rR]$"
+            ),
+            asistir,
+        ),
+        group=-3,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(
+                r"^\.[aA][tT][rR][aA][sS]$"
+            ),
+            atras,
+        ),
+        group=-3,
+    )
+
+    # ========================================================
+    # VERIFICACIÓN DE COMANDOS
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.COMMAND,
+            verificar_registro,
+        ),
+        group=0,
+    )
+
+    # ========================================================
+    # RESPUESTAS DE JUEGOS
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_mates,
+        ),
+        group=5,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_memoria,
+        ),
+        group=6,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_trivia,
+        ),
+        group=7,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_palabras,
+        ),
+        group=8,
+    )
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            responder_funks,
+        ),
+        group=9,
+    )
+
+    # ========================================================
+    # EVENTOS POR MENSAJE
+    # ========================================================
+
+    app.add_handler(
+        MessageHandler(
+            filters.Regex(r"^\."),
+            ver_evento,
+        ),
+        group=100,
+    )
+
+    # ========================================================
+    # COMANDOS BÁSICOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("start", start),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("help", help_command),
+        group=10,
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            help_botones,
+            pattern=r"^help_",
+        ),
+        group=10,
+    )
+
+    app.add_handler(
+        CallbackQueryHandler(
+            responder_invitacion,
+            pattern=r"^inv_",
+        ),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("tutorial", tutorial),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("reg", reg),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("unreg", unreg),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("deletereg", deletereg),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("setpais", setpais),
+        group=10,
+    )
+
+    # ========================================================
+    # PERFIL
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("perfil", perfil),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("tokens", tokens_cmd),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("nivel", nivel_cmd),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("rango", rango_cmd),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("userslist", userslist),
+        group=10,
+    )
+
+    # ========================================================
+    # JUEGOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("actividades", actividades),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("juegos", actividades),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("ruleta", ruleta),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("apostar", apostar),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("cancelar", cancelar),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("mates", mates),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("dados", dados),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("memoria", memoria),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("trivia", trivia),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("palabras", palabras),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("funks", funks),
+        group=10,
+    )
+
+    # ========================================================
+    # BANCO
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("bank", bank),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("depositar", depositar),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("retirar", retirar),
+        group=10,
+    )
+
+    # ========================================================
+    # EVENTOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("reclamar", reclamar),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("eventos", eventos),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("addevent", addevent),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("removeevent", removeevent),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("editevent", editevent),
+        group=10,
+    )
+
+    # ========================================================
+    # ADMIN
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("anunciar", anunciar),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("giveTokens", giveTokens),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("giveXP", giveXP),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("removeTokens", removeTokens),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("removeXP", removeXP),
+        group=10,
+    )
+
+    # ========================================================
+    # CHAT
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("chatm", chatm),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("msp", msp),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("darTokens", darTokens),
+        group=10,
+    )
+
+    # ========================================================
+    # TOP / STATS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("top", top),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("stats", stats),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("sugerencia", sugerencia),
+        group=10,
+    )
+
+    # ========================================================
+    # VERSIÓN
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("version", version),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("setversion", setversion),
+        group=10,
+    )
+
+    # ========================================================
+    # LOGROS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("logros", logros),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "reclamarlogros",
+            reclamarlogros,
+        ),
+        group=10,
+    )
+
+    # ========================================================
+    # AMIGOS
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler("amigo", amigo),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler("amigos", amigos),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "solicitudes",
+            solicitudes,
+        ),
+        group=10,
+    )
+
+    app.add_handler(
+        CommandHandler(
+            "invitar",
+            invitar,
+        ),
+        group=10,
+    )
+
+    # ========================================================
+    # MISIONES
+    # ========================================================
+
+    app.add_handler(
+        CommandHandler(
+            "misiones",
+            misiones,
+        ),
+        group=10,
+    )
+
+    # ========================================================
+    # ARRANQUE
+    # ========================================================
+
+    print("Bot corriendo...")
+
+    app.run_polling()
+
+
+if __name__ == "__main__":
+    main()

@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
+from core.logros import actualizar_stat, dar_logro, obtener_stats
 
 COLORES_VALIDOS = ["rojo", "verde", "azul", "amarillo", "naranja", "morado", "azul claro"]
 
@@ -117,6 +118,14 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if resultado == eleccion:
         actualizar_tokens(user_id, PREMIO_TOKENS)
         subio = sumar_xp(user_id, PREMIO_XP)
+
+        # Logro: Fiestero
+        actualizar_stat(user_id, "ruletas_ganadas", incremento=1)
+        stats = obtener_stats(user_id)
+        if stats[4] >= 10:
+            if dar_logro(user_id, "fiestero"):
+                await avisar_logro(context, user_id, "fiestero")
+
         texto = (
             f"🎰 *RULETA*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
@@ -143,3 +152,23 @@ async def ruleta(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     datos_nuevos = obtener_datos(user_id)
     texto += f"\n\n💰 Tokens actuales: *{datos_nuevos[2]}*"
     await update.message.reply_text(texto, parse_mode="Markdown")
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass

@@ -7,6 +7,7 @@ from core.db import (
     obtener_pais, obtener_user_id_por_nombre, esta_online
 )
 from core.paises import obtener_nombre as nombre_pais, obtener_bandera
+from core.logros import LOGROS, logros_de_usuario
 
 
 async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -44,6 +45,10 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         estado = "🟢 Online" if esta_online(otro_id) else "⚫ Offline"
 
+        logros_usr = logros_de_usuario(otro_id)
+        total_logros = len(LOGROS)
+        linea_logros = f"🏆 Logros: *{len(logros_usr)}/{total_logros}*"
+
         await update.message.reply_text(
             f"👤 *PERFIL DE {nombre.upper()}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
@@ -51,6 +56,7 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"{linea_pais}\n"
             f"🎖️ Rango: {rango_por_nivel(nivel)}\n"
             f"⭐ Nivel: *{nivel}*\n"
+            f"{linea_logros}\n"
             f"{estado}",
             parse_mode="Markdown"
         )
@@ -72,6 +78,18 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     estado = "🟢 Online" if esta_online(user_id) else "⚫ Offline"
 
+    logros_usr = logros_de_usuario(user_id)
+    total_logros = len(LOGROS)
+
+    # Mostrar los emojis de los logros desbloqueados
+    emojis_logros = ""
+    if logros_usr:
+        emojis_logros = "\n\n🏆 *Logros:* "
+        for clave in logros_usr:
+            if clave in LOGROS:
+                emojis_logros += LOGROS[clave]["emoji"] + " "
+        emojis_logros += f"\n({len(logros_usr)}/{total_logros})"
+
     await update.message.reply_text(
         f"👤 *{nombre.upper()}*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
@@ -83,7 +101,8 @@ async def perfil(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"📊 {barra}\n"
         f"💰 {tokens} tokens"
         f"{linea_pais}\n"
-        f"{estado}",
+        f"{estado}"
+        f"{emojis_logros}",
         parse_mode="Markdown"
     )
 

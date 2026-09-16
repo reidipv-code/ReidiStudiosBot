@@ -14,6 +14,7 @@ from core.sesiones import init_sesiones_db, obtener_juego
 from core.paises import lista_paises_texto
 from core.logros import init_logros_db, LOGROS, logros_de_usuario, dar_logro
 from core.amigos import init_amigos_db
+from core.misiones import init_misiones_db
 
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
@@ -29,6 +30,7 @@ from comandos.reclamarlogros import reclamarlogros
 from comandos.amigos import amigo, amigos, solicitudes
 from comandos.amigos_top import top_amigos
 from comandos.amigos_invitar import invitar, responder_invitacion, revisar_invitaciones_expiradas
+from comandos.misiones import misiones
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -70,7 +72,7 @@ COMANDOS_VALIDOS = [
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
     "/sugerencia", "/version", "/setversion", "/logros",
     "/reclamarlogros", "/amigo", "/amigos", "/solicitudes",
-    "/invitar"
+    "/invitar", "/misiones"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -88,6 +90,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )
@@ -214,6 +239,7 @@ def main() -> None:
     init_reclamar_db()
     init_logros_db()
     init_amigos_db()
+    init_misiones_db()
 
     app = Application.builder().token(TOKEN).build()
 
@@ -232,38 +258,19 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_invitaciones_expiradas, interval=30, first=30)
         print("✅ JobQueue configurado con 10 tareas programadas")
 
-    app.add_handler(
-        MessageHandler(filters.ALL, rastrear_actividad),
-        group=-100
-    )
-
-    app.add_handler(
-        MessageHandler(filters.ALL, bloquear_comandos_en_partida),
-        group=-10
-    )
+    app.add_handler(MessageHandler(filters.ALL, rastrear_actividad), group=-100)
+    app.add_handler(MessageHandler(filters.ALL, bloquear_comandos_en_partida), group=-10)
 
     app.add_handler(
         MessageHandler(filters.Regex(r"^\.[sS][iI]$|^\.[sS][íÍ]$|^\.[nN][oO]$"), confirmar_accion),
         group=-5
     )
 
-    app.add_handler(
-        MessageHandler(filters.Regex(r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"), comenzar),
-        group=-4
-    )
-    app.add_handler(
-        MessageHandler(filters.Regex(r"^\.[cC][aA][nN][cC][eE][lL][aA][rR]$"), cancelar_evento),
-        group=-4
-    )
+    app.add_handler(MessageHandler(filters.Regex(r"^\.[cC][oO][mM][eE][nN][zZ][aA][rR]$"), comenzar), group=-4)
+    app.add_handler(MessageHandler(filters.Regex(r"^\.[cC][aA][nN][cC][eE][lL][aA][rR]$"), cancelar_evento), group=-4)
 
-    app.add_handler(
-        MessageHandler(filters.Regex(r"^\.[aA][sS][iI][sS][tT][iI][rR]$"), asistir),
-        group=-3
-    )
-    app.add_handler(
-        MessageHandler(filters.Regex(r"^\.[aA][tT][rR][aA][sS]$"), atras),
-        group=-3
-    )
+    app.add_handler(MessageHandler(filters.Regex(r"^\.[aA][sS][iI][sS][tT][iI][rR]$"), asistir), group=-3)
+    app.add_handler(MessageHandler(filters.Regex(r"^\.[aA][tT][rR][aA][sS]$"), atras), group=-3)
 
     app.add_handler(MessageHandler(filters.COMMAND, verificar_registro), group=0)
 
@@ -332,6 +339,7 @@ def main() -> None:
     app.add_handler(CommandHandler("amigos", amigos), group=10)
     app.add_handler(CommandHandler("solicitudes", solicitudes), group=10)
     app.add_handler(CommandHandler("invitar", invitar), group=10)
+    app.add_handler(CommandHandler("misiones", misiones), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

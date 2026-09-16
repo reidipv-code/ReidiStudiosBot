@@ -13,6 +13,7 @@ from core.db import (
 from core.sesiones import init_sesiones_db, obtener_juego
 from core.paises import lista_paises_texto
 from core.logros import init_logros_db, LOGROS, logros_de_usuario, dar_logro
+from core.amigos import init_amigos_db
 
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
@@ -25,6 +26,9 @@ from comandos.help import help_command, help_botones
 from comandos.version import version, setversion
 from comandos.logros import logros
 from comandos.reclamarlogros import reclamarlogros
+from comandos.amigos import amigo, amigos, solicitudes
+from comandos.amigos_top import top_amigos
+from comandos.amigos_invitar import invitar, responder_invitacion, revisar_invitaciones_expiradas
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -65,7 +69,8 @@ COMANDOS_VALIDOS = [
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
     "/sugerencia", "/version", "/setversion", "/logros",
-    "/reclamarlogros"
+    "/reclamarlogros", "/amigo", "/amigos", "/solicitudes",
+    "/invitar"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -174,7 +179,7 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         raise ApplicationHandlerStop
 
-    # ─── Logro: Curioso (15 comandos distintos) ────────────
+    # Logro: Curioso
     from core.logros import obtener_stats, actualizar_stat
     stats = obtener_stats(user_id)
     comandos_usados = stats[10] if stats[10] else ""
@@ -208,6 +213,7 @@ def main() -> None:
     init_eventos_db()
     init_reclamar_db()
     init_logros_db()
+    init_amigos_db()
 
     app = Application.builder().token(TOKEN).build()
 
@@ -223,7 +229,8 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_eventos_expirados, interval=60, first=30)
         app.job_queue.run_repeating(revisar_eventos_iniciando, interval=30, first=15)
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
-        print("✅ JobQueue configurado con 9 tareas programadas")
+        app.job_queue.run_repeating(revisar_invitaciones_expiradas, interval=30, first=30)
+        print("✅ JobQueue configurado con 10 tareas programadas")
 
     app.add_handler(
         MessageHandler(filters.ALL, rastrear_actividad),
@@ -271,6 +278,7 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
     app.add_handler(CallbackQueryHandler(help_botones, pattern=r"^help_"), group=10)
+    app.add_handler(CallbackQueryHandler(responder_invitacion, pattern=r"^inv_"), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)
     app.add_handler(CommandHandler("reg", reg), group=10)
     app.add_handler(CommandHandler("unreg", unreg), group=10)
@@ -320,6 +328,10 @@ def main() -> None:
     app.add_handler(CommandHandler("setversion", setversion), group=10)
     app.add_handler(CommandHandler("logros", logros), group=10)
     app.add_handler(CommandHandler("reclamarlogros", reclamarlogros), group=10)
+    app.add_handler(CommandHandler("amigo", amigo), group=10)
+    app.add_handler(CommandHandler("amigos", amigos), group=10)
+    app.add_handler(CommandHandler("solicitudes", solicitudes), group=10)
+    app.add_handler(CommandHandler("invitar", invitar), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

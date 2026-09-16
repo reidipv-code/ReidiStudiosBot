@@ -6,6 +6,7 @@ from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.logros import actualizar_stat, dar_logro, obtener_stats
+from core.misiones import sumar_progreso
 
 APUESTA_MIN = 5
 APUESTA_MAX = 1000
@@ -132,12 +133,15 @@ async def apostar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             actualizar_tokens(rival_id, -rival_cantidad)
             sumar_xp(user_id, 30)
 
-            # Logro: Apostador
             actualizar_stat(user_id, "apuestas_ganadas", incremento=1)
             stats = obtener_stats(user_id)
             if stats[5] >= 10:
                 if dar_logro(user_id, "apostador"):
                     await avisar_logro(context, user_id, "apostador")
+
+            completadas = sumar_progreso(user_id, "apuesta_ganada")
+            for m_id in completadas:
+                await avisar_mision(context, user_id, m_id)
 
             texto = (
                 f"🎲 *APUESTA RESUELTA*\n"
@@ -158,6 +162,10 @@ async def apostar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if stats[5] >= 10:
                 if dar_logro(rival_id, "apostador"):
                     await avisar_logro(context, rival_id, "apostador")
+
+            completadas = sumar_progreso(rival_id, "apuesta_ganada")
+            for m_id in completadas:
+                await avisar_mision(context, rival_id, m_id)
 
             texto = (
                 f"🎲 *APUESTA RESUELTA*\n"
@@ -250,6 +258,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

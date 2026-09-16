@@ -21,6 +21,7 @@ from comandos.top import top
 from comandos.stats import stats
 from comandos.sugerencia import sugerencia
 from comandos.help import help_command, help_botones
+from comandos.version import version, setversion
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -60,7 +61,7 @@ COMANDOS_VALIDOS = [
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
-    "/sugerencia"
+    "/sugerencia", "/version", "/setversion"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -117,7 +118,7 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     comando = texto.split()[0].split("@")[0].lower()
-    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais"]
+    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais", "/version"]
 
     if comando not in COMANDOS_VALIDOS_LOWER:
         await update.message.reply_text(
@@ -273,6 +274,8 @@ def main() -> None:
     app.add_handler(CommandHandler("top", top), group=10)
     app.add_handler(CommandHandler("stats", stats), group=10)
     app.add_handler(CommandHandler("sugerencia", sugerencia), group=10)
+    app.add_handler(CommandHandler("version", version), group=10)
+    app.add_handler(CommandHandler("setversion", setversion), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

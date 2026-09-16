@@ -9,14 +9,33 @@ from core.db import (
     actualizar_tokens,
 )
 from core.paises import obtener_nombre as nombre_pais, obtener_bandera
+from core.logros import actualizar_stat, dar_logro, obtener_stats
 
 
-# Enlace al grupo del chat mundial
-CHAT_MUNDIAL_URL = "https://t.me/+pUmtMdKAkM8zMjFh"
+CHAT_MUNDIAL_URL = "https://t.me/+XXXXXXXXXXXXXXXX"
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def chatm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/chatm → manda al usuario al grupo del chat mundial."""
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
@@ -37,10 +56,6 @@ async def chatm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    /msp nombre| mensaje
-    Envía un mensaje privado al usuario, mostrando quién lo manda.
-    """
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
@@ -88,13 +103,11 @@ async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Datos del que envía
     datos_envia = obtener_datos(user_id)
     nombre_envia = datos_envia[0] if datos_envia else "Desconocido"
     pais_envia = obtener_pais(user_id)
     bandera_envia = obtener_bandera(pais_envia) if pais_envia else "🌎"
 
-    # Construir el mensaje con el formato: 🇨🇺 OriGamePlay ~ Hola
     texto_final = f"{bandera_envia} {nombre_envia} ~ {mensaje}"
 
     try:
@@ -106,16 +119,19 @@ async def msp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"✅ Mensaje enviado a *{nombre_destino}*.",
             parse_mode="Markdown"
         )
+
+        # ─── Logro: Social (10 msp) ────────────────────────
+        actualizar_stat(user_id, "msp_usados", incremento=1)
+        stats = obtener_stats(user_id)
+        if stats[6] >= 10:
+            if dar_logro(user_id, "social"):
+                await avisar_logro(context, user_id, "social")
+
     except Exception as e:
         await update.message.reply_text(f"❌ No se pudo enviar: {e}")
 
 
 async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    /darTokens nombre cantidad mensaje
-    Transfiere tokens del usuario que lo usa al usuario indicado,
-    y le envía un mensaje tipo carta.
-    """
     user_id = update.effective_user.id
 
     if not esta_registrado(user_id):
@@ -158,7 +174,6 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Datos del que envía
     datos_envia = obtener_datos(user_id)
     if datos_envia is None:
         await update.message.reply_text("❌ No se pudieron obtener tus datos.")
@@ -175,7 +190,6 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Buscar al destinatario
     destino_id = obtener_user_id_por_nombre(nombre_destino)
 
     if destino_id is None:
@@ -189,15 +203,12 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("❌ No puedes enviarte tokens a ti mismo.")
         return
 
-    # Transferir tokens
     actualizar_tokens(user_id, -cantidad)
     actualizar_tokens(destino_id, cantidad)
 
-    # Datos del emisor para el mensaje
     pais_envia = obtener_pais(user_id)
     bandera_envia = obtener_bandera(pais_envia) if pais_envia else "🌎"
 
-    # Enviar al destinatario
     texto_carta = (
         f"💰 *HAS RECIBIDO TOKENS*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
@@ -212,15 +223,13 @@ async def darTokens(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode="Markdown"
         )
     except Exception as e:
-        # Si falla el envío, devolvemos los tokens
         actualizar_tokens(user_id, cantidad)
         actualizar_tokens(destino_id, -cantidad)
         await update.message.reply_text(f"❌ No se pudo enviar: {e}")
         return
 
-    # Confirmación al emisor
     await update.message.reply_text(
         f"✅ Le has enviado *{cantidad}* tokens a *{nombre_destino}*.\n\n"
         f"📝 Mensaje: _{mensaje}_",
         parse_mode="Markdown"
-        )
+    )

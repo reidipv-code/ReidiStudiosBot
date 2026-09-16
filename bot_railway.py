@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler,
-    filters, ApplicationHandlerStop
+    filters, ApplicationHandlerStop, CallbackQueryHandler
 )
 
 from core.db import (
@@ -20,6 +20,7 @@ from comandos.chat import chatm, msp, darTokens
 from comandos.top import top
 from comandos.stats import stats
 from comandos.sugerencia import sugerencia
+from comandos.help import help_command, help_botones
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -103,38 +104,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "¡Hola! Soy ReidiStudiosBot.\n\n"
         "Regístrate con:\n/reg nombre.pais\n\n"
         "Ejemplo: /reg Juan.cuba\n\n"
-        "Comandos:\n"
-        "/start - Iniciar\n"
-        "/help - Ayuda\n"
-        "/reg nombre.pais - Registrarte\n"
-        "/setpais pais - Configurar país (una vez)\n"
-        "/perfil - Ver tu perfil\n"
-        "/bank - Ver tu banco\n"
-        "/reclamar - Recompensa diaria\n"
-        "/eventos - Ver eventos\n"
-        "/actividades - Menú de juegos\n"
-        "/top - Rankings\n"
-        "/stats - Estadísticas del bot\n"
-        "/sugerencia - Enviar sugerencia al admin\n"
-        "/chatm - Ir al chat mundial\n"
-        "/msp - Mensaje privado\n"
-        "/darTokens - Transferir tokens\n"
-        "/tutorial - Guía completa"
-    )
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "📋 *Comandos básicos:*\n"
-        "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
-        "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
-        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
-        "/top tokens | /top nivel | /top all\n"
-        "/stats\n/sugerencia <texto>\n"
-        "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
-        "/tutorial\n\n"
-        "🎮 Juegos: /actividades",
-        parse_mode="Markdown"
+        "Usa /help para ver todos los comandos."
     )
 
 
@@ -257,6 +227,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
+    app.add_handler(CallbackQueryHandler(help_botones, pattern=r"^help_"), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)
     app.add_handler(CommandHandler("reg", reg), group=10)
     app.add_handler(CommandHandler("unreg", unreg), group=10)

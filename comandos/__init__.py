@@ -6,3 +6,4 @@ from .help import help_command, help_botones
 from .version import version, setversion
 from .logros import logros
 from .reclamarlogros import reclamarlogros
+from .amigos import amigo, amigos, solicitudes

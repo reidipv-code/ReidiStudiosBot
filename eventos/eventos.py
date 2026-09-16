@@ -8,12 +8,13 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import obtener_datos, obtener_todos_los_usuarios, obtener_pais, DB_PATH
 from core.paises import obtener_zona, obtener_nombre as nombre_pais
+from core.logros import actualizar_stat, dar_logro, obtener_stats
 
 COOLDOWN_NORMAL = 10 * 60 * 60
 COOLDOWN_EXPIRADO = 1 * 60 * 60
 TIEMPO_CONFIRMACION = 5 * 60
 
-ZONA_ADMIN = "America/Havana"  # Los eventos se crean en hora de Cuba
+ZONA_ADMIN = "America/Havana"
 
 eventos_en_vista = {}
 eventos_esperando_inicio = {}
@@ -329,6 +330,14 @@ async def asistir(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         raise ApplicationHandlerStop
 
     agregar_asistente(user_id, evento_id)
+
+    # ─── Logro: Vagón sin destino (5 eventos seguidos) ─────
+    actualizar_stat(user_id, "eventos_seguidos", incremento=1)
+    stats = obtener_stats(user_id)
+    if stats[6] >= 5:
+        if dar_logro(user_id, "vagon_sin_destino"):
+            await avisar_logro(context, user_id, "vagon_sin_destino")
+
     await update.message.reply_text(f"✅ *¡Apuntado a {nombre_evento}!*", parse_mode="Markdown")
     raise ApplicationHandlerStop
 
@@ -389,11 +398,13 @@ async def cancelar_evento(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             info["pendientes"].remove(user_id)
             await update.message.reply_text("❌ Cancelado.")
             set_cooldown_eventos(user_id)
+            actualizar_stat(user_id, "eventos_seguidos", valor=0)
             raise ApplicationHandlerStop
         if user_id in info["confirmados"]:
             info["confirmados"].remove(user_id)
             await update.message.reply_text("❌ Cancelado.")
             set_cooldown_eventos(user_id)
+            actualizar_stat(user_id, "eventos_seguidos", valor=0)
             raise ApplicationHandlerStop
     await update.message.reply_text("❌ No estás en ningún evento.")
     raise ApplicationHandlerStop
@@ -574,6 +585,26 @@ async def editevent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"✅ Evento actualizado.", parse_mode="Markdown")
 
 
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
 async def revisar_eventos_iniciando(context) -> None:
     ahora = datetime.now(timezone.utc)
     conn = sqlite3.connect(DB_PATH)
@@ -637,6 +668,7 @@ async def revisar_descalificados(context) -> None:
 
             for uid in pendientes:
                 set_cooldown_eventos(uid)
+                actualizar_stat(uid, "eventos_seguidos", valor=0)
                 try:
                     await context.bot.send_message(chat_id=uid, text=f"⏰ <b>Descalificado</b>\nNo respondiste a tiempo.", parse_mode="HTML")
                 except Exception:

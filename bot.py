@@ -18,6 +18,7 @@ from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
 from comandos.chat import chatm, msp, darTokens
 from comandos.top import top
+from comandos.stats import stats
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -56,7 +57,7 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais", "/chatm", "/msp", "/darTokens", "/top"
+    "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -111,6 +112,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/eventos - Ver eventos\n"
         "/actividades - Menú de juegos\n"
         "/top - Rankings\n"
+        "/stats - Estadísticas del bot\n"
         "/chatm - Ir al chat mundial\n"
         "/msp - Mensaje privado\n"
         "/darTokens - Transferir tokens\n"
@@ -125,6 +127,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
         "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
         "/top tokens | /top nivel | /top all\n"
+        "/stats\n"
         "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
         "/tutorial\n\n"
         "🎮 Juegos: /actividades",
@@ -294,6 +297,7 @@ def main() -> None:
     app.add_handler(CommandHandler("msp", msp), group=10)
     app.add_handler(CommandHandler("darTokens", darTokens), group=10)
     app.add_handler(CommandHandler("top", top), group=10)
+    app.add_handler(CommandHandler("stats", stats), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

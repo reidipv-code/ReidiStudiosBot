@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler,
-    filters, ApplicationHandlerStop
+    filters, ApplicationHandlerStop, CallbackQueryHandler
 )
 
 from core.db import (
@@ -12,6 +12,8 @@ from core.db import (
 )
 from core.sesiones import init_sesiones_db, obtener_juego
 from core.paises import lista_paises_texto
+from core.logros import init_logros_db, LOGROS, logros_de_usuario, dar_logro
+from core.amigos import init_amigos_db
 
 from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
@@ -19,6 +21,12 @@ from comandos.tutorial import tutorial
 from comandos.chat import chatm, msp, darTokens
 from comandos.top import top
 from comandos.stats import stats
+from comandos.sugerencia import sugerencia
+from comandos.help import help_command, help_botones
+from comandos.version import version, setversion
+from comandos.logros import logros
+from comandos.reclamarlogros import reclamarlogros
+from comandos.amigos import amigo, amigos, solicitudes
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -46,7 +54,7 @@ from eventos.reclamar import init_reclamar_db, reclamar
 
 load_dotenv()
 
-TOKEN = os.getenv("TELEGRAM_TOKEN") or os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 
 COMANDOS_VALIDOS = [
     "/start", "/help", "/reg", "/unreg", "/deletereg",
@@ -57,10 +65,31 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats"
+    "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
+    "/sugerencia", "/version", "/setversion", "/logros",
+    "/reclamarlogros", "/amigo", "/amigos", "/solicitudes"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
+
+
+async def avisar_logro(context, user_id, clave):
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -101,37 +130,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "¡Hola! Soy ReidiStudiosBot.\n\n"
         "Regístrate con:\n/reg nombre.pais\n\n"
         "Ejemplo: /reg Juan.cuba\n\n"
-        "Comandos:\n"
-        "/start - Iniciar\n"
-        "/help - Ayuda\n"
-        "/reg nombre.pais - Registrarte\n"
-        "/setpais pais - Configurar país (una vez)\n"
-        "/perfil - Ver tu perfil\n"
-        "/bank - Ver tu banco\n"
-        "/reclamar - Recompensa diaria\n"
-        "/eventos - Ver eventos\n"
-        "/actividades - Menú de juegos\n"
-        "/top - Rankings\n"
-        "/stats - Estadísticas del bot\n"
-        "/chatm - Ir al chat mundial\n"
-        "/msp - Mensaje privado\n"
-        "/darTokens - Transferir tokens\n"
-        "/tutorial - Guía completa"
-    )
-
-
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(
-        "📋 *Comandos básicos:*\n"
-        "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
-        "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
-        "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
-        "/top tokens | /top nivel | /top all\n"
-        "/stats\n"
-        "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
-        "/tutorial\n\n"
-        "🎮 Juegos: /actividades",
-        parse_mode="Markdown"
+        "Usa /help para ver todos los comandos."
     )
 
 
@@ -144,7 +143,7 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     comando = texto.split()[0].split("@")[0].lower()
-    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais"]
+    comandos_libres = ["/start", "/help", "/reg", "/unreg", "/deletereg", "/tutorial", "/setpais", "/version"]
 
     if comando not in COMANDOS_VALIDOS_LOWER:
         await update.message.reply_text(
@@ -177,6 +176,24 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         raise ApplicationHandlerStop
 
+    # Logro: Curioso
+    from core.logros import obtener_stats, actualizar_stat
+    stats = obtener_stats(user_id)
+    comandos_usados = stats[10] if stats[10] else ""
+
+    if comando not in comandos_usados.split(","):
+        if comandos_usados:
+            nuevos = comandos_usados + "," + comando
+        else:
+            nuevos = comando
+
+        actualizar_stat(user_id, "comandos_usados", valor=nuevos)
+        total_distintos = len(set(nuevos.split(",")))
+
+        if total_distintos >= 15:
+            if dar_logro(user_id, "curioso"):
+                await avisar_logro(context, user_id, "curioso")
+
 
 def main() -> None:
     init_db()
@@ -192,6 +209,8 @@ def main() -> None:
     init_funks_db()
     init_eventos_db()
     init_reclamar_db()
+    init_logros_db()
+    init_amigos_db()
 
     app = Application.builder().token(TOKEN).build()
 
@@ -254,6 +273,7 @@ def main() -> None:
 
     app.add_handler(CommandHandler("start", start), group=10)
     app.add_handler(CommandHandler("help", help_command), group=10)
+    app.add_handler(CallbackQueryHandler(help_botones, pattern=r"^help_"), group=10)
     app.add_handler(CommandHandler("tutorial", tutorial), group=10)
     app.add_handler(CommandHandler("reg", reg), group=10)
     app.add_handler(CommandHandler("unreg", unreg), group=10)
@@ -298,6 +318,14 @@ def main() -> None:
     app.add_handler(CommandHandler("darTokens", darTokens), group=10)
     app.add_handler(CommandHandler("top", top), group=10)
     app.add_handler(CommandHandler("stats", stats), group=10)
+    app.add_handler(CommandHandler("sugerencia", sugerencia), group=10)
+    app.add_handler(CommandHandler("version", version), group=10)
+    app.add_handler(CommandHandler("setversion", setversion), group=10)
+    app.add_handler(CommandHandler("logros", logros), group=10)
+    app.add_handler(CommandHandler("reclamarlogros", reclamarlogros), group=10)
+    app.add_handler(CommandHandler("amigo", amigo), group=10)
+    app.add_handler(CommandHandler("amigos", amigos), group=10)
+    app.add_handler(CommandHandler("solicitudes", solicitudes), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

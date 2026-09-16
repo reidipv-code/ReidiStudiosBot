@@ -3,11 +3,11 @@ import sqlite3
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from core.db import DB_PATH, esta_registrado
+from core.db import DB_PATH, esta_registrado, obtener_datos
+from core.amigos import lista_amigos
 
 
 def formatear_top(lista, valor_campo):
-    """Recibe lista de tuplas y devuelve texto formateado con medallas."""
     medallas = ["🥇", "🥈", "🥉"]
     texto = ""
 
@@ -35,21 +35,28 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not context.args:
         await update.message.reply_text(
-            "⚠️ Uso: `/top tokens`, `/top nivel` o `/top all`",
+            "⚠️ Uso:\n"
+            "`/top tokens` → Top por tokens\n"
+            "`/top nivel` → Top por nivel\n"
+            "`/top all` → Top global\n"
+            "`/top amigos` → Top entre tus amigos",
             parse_mode="Markdown"
         )
         return
 
     opcion = context.args[0].lower().strip()
 
+    # ─── TOP AMIGOS (lo maneja amigos_top.py) ──────────────
+    if opcion == "amigos":
+        from comandos.amigos_top import top_amigos
+        await top_amigos(update, context)
+        return
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
     if opcion == "tokens":
-        c.execute(
-            "SELECT nombre, tokens FROM usuarios "
-            "ORDER BY tokens DESC LIMIT 10"
-        )
+        c.execute("SELECT nombre, tokens FROM usuarios ORDER BY tokens DESC LIMIT 10")
         lista = c.fetchall()
         conn.close()
 
@@ -62,10 +69,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(texto, parse_mode="Markdown")
 
     elif opcion == "nivel":
-        c.execute(
-            "SELECT nombre, nivel FROM usuarios "
-            "ORDER BY nivel DESC, xp DESC LIMIT 10"
-        )
+        c.execute("SELECT nombre, nivel FROM usuarios ORDER BY nivel DESC, xp DESC LIMIT 10")
         lista = c.fetchall()
         conn.close()
 
@@ -78,11 +82,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(texto, parse_mode="Markdown")
 
     elif opcion == "all":
-        # Ranking combinado: nivel * 1000 + tokens
-        c.execute(
-            "SELECT nombre, nivel, tokens FROM usuarios "
-            "ORDER BY (nivel * 1000 + tokens) DESC LIMIT 10"
-        )
+        c.execute("SELECT nombre, nivel, tokens FROM usuarios ORDER BY (nivel * 1000 + tokens) DESC LIMIT 10")
         lista = c.fetchall()
         conn.close()
 
@@ -105,6 +105,10 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         conn.close()
         await update.message.reply_text(
-            "⚠️ Uso: `/top tokens`, `/top nivel` o `/top all`",
+            "⚠️ Uso:\n"
+            "`/top tokens` → Top por tokens\n"
+            "`/top nivel` → Top por nivel\n"
+            "`/top all` → Top global\n"
+            "`/top amigos` → Top entre tus amigos",
             parse_mode="Markdown"
         )

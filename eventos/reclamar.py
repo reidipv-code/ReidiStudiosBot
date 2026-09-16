@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
+from core.logros import dar_logro
 
 COOLDOWN = 24 * 60 * 60
 
@@ -111,6 +112,15 @@ async def reclamar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     set_reclamacion(user_id, ahora, racha, fecha_hoy)
 
+    # ─── Logros de racha ───────────────────────────────────
+    if racha >= 7:
+        if dar_logro(user_id, "racha_7"):
+            await avisar_logro(context, user_id, "racha_7")
+
+    if racha >= 30:
+        if dar_logro(user_id, "racha_30"):
+            await avisar_logro(context, user_id, "racha_30")
+
     texto = (
         f"🎁 *¡RECOMPENSA RECLAMADA!*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
@@ -128,3 +138,23 @@ async def reclamar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     texto += f"\n\n━━━━━━━━━━━━━━━━━━━\n🔥 Racha: *{racha}* días\n⏳ Vuelve en 24h"
 
     await update.message.reply_text(texto, parse_mode="Markdown")
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass

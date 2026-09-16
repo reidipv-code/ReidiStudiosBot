@@ -8,6 +8,7 @@ from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
 from core.preguntas_trivia import TRIVIA
 from core.preguntas_mundo import MUNDO
+from core.logros import actualizar_stat, dar_logro, obtener_stats
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
@@ -225,9 +226,29 @@ async def terminar_trivia(context, user_id, gano):
     set_cooldown(user_id)
     terminar_partida(user_id)
 
+    # Logros
+    actualizar_stat(user_id, "partidas_jugadas", incremento=1)
+
     if gano:
         actualizar_tokens(user_id, config["premio_tokens"])
         subio = sumar_xp(user_id, config["premio_xp"])
+
+        actualizar_stat(user_id, "trivias_ganadas", incremento=1)
+        actualizar_stat(user_id, "trivia_seguidas", incremento=1)
+        actualizar_stat(user_id, "mates_seguidas", valor=0)
+
+        stats = obtener_stats(user_id)
+
+        # Erudito (20 trivias ganadas)
+        if stats[3] >= 20:
+            if dar_logro(user_id, "erudito"):
+                await avisar_logro(context, user_id, "erudito")
+
+        # Cerebrito (10 seguidas mates+trivia)
+        if stats[8] + stats[9] >= 10:
+            if dar_logro(user_id, "cerebrito"):
+                await avisar_logro(context, user_id, "cerebrito")
+
         texto = (
             f"🎉 *¡TRIVIA COMPLETADA!*\n"
             f"🌎 {partida['categoria'].capitalize()} - {partida['dificultad'].capitalize()}\n"
@@ -239,6 +260,7 @@ async def terminar_trivia(context, user_id, gano):
             texto += f"\n⭐ ¡Nivel {subio}!"
         texto += "\n⏳ Cooldown: 10 min"
     else:
+        actualizar_stat(user_id, "trivia_seguidas", valor=0)
         texto = (
             f"😢 *TRIVIA FALLIDA*\n"
             f"✅ Aciertos: {partida['aciertos']}/5\n"
@@ -250,6 +272,26 @@ async def terminar_trivia(context, user_id, gano):
     except Exception:
         pass
     del partidas_trivia[user_id]
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def revisar_timeouts_trivia(context) -> None:

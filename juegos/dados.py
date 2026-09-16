@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, DB_PATH
+from core.misiones import sumar_progreso
 
 APUESTA_MIN = 10
 APUESTA_MAX = 500
@@ -127,6 +128,11 @@ async def dados(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         if subio:
             texto += f"\n⭐ ¡Nivel {subio}!"
+
+        # Misiones
+        completadas = sumar_progreso(user_id, "dados_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
     else:
         perdida = cantidad * 2
         actualizar_tokens(user_id, -perdida)
@@ -146,3 +152,26 @@ async def dados(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     datos_nuevos = obtener_datos(user_id)
     texto += f"\n\n💰 Tokens: *{datos_nuevos[2]}*"
     await update.message.reply_text(texto, parse_mode="Markdown")
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass

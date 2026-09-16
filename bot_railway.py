@@ -24,6 +24,7 @@ from comandos.sugerencia import sugerencia
 from comandos.help import help_command, help_botones
 from comandos.version import version, setversion
 from comandos.logros import logros
+from comandos.reclamarlogros import reclamarlogros
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -63,7 +64,8 @@ COMANDOS_VALIDOS = [
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
     "/setpais", "/chatm", "/msp", "/darTokens", "/top", "/stats",
-    "/sugerencia", "/version", "/setversion", "/logros"
+    "/sugerencia", "/version", "/setversion", "/logros",
+    "/reclamarlogros"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
@@ -178,15 +180,12 @@ async def verificar_registro(update: Update, context: ContextTypes.DEFAULT_TYPE)
     comandos_usados = stats[10] if stats[10] else ""
 
     if comando not in comandos_usados.split(","):
-        # Es un comando nuevo para este usuario
         if comandos_usados:
             nuevos = comandos_usados + "," + comando
         else:
             nuevos = comando
 
         actualizar_stat(user_id, "comandos_usados", valor=nuevos)
-
-        # Contar distintos
         total_distintos = len(set(nuevos.split(",")))
 
         if total_distintos >= 15:
@@ -320,6 +319,7 @@ def main() -> None:
     app.add_handler(CommandHandler("version", version), group=10)
     app.add_handler(CommandHandler("setversion", setversion), group=10)
     app.add_handler(CommandHandler("logros", logros), group=10)
+    app.add_handler(CommandHandler("reclamarlogros", reclamarlogros), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

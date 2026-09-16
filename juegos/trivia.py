@@ -9,6 +9,7 @@ from core.sesiones import iniciar_partida, terminar_partida
 from core.preguntas_trivia import TRIVIA
 from core.preguntas_mundo import MUNDO
 from core.logros import actualizar_stat, dar_logro, obtener_stats
+from core.misiones import sumar_progreso
 
 COOLDOWN_PERDIDA = 420
 COOLDOWN_VICTORIA = 600
@@ -226,8 +227,12 @@ async def terminar_trivia(context, user_id, gano):
     set_cooldown(user_id)
     terminar_partida(user_id)
 
-    # Logros
     actualizar_stat(user_id, "partidas_jugadas", incremento=1)
+
+    # Misiones
+    completadas = sumar_progreso(user_id, "partida_jugada")
+    for m_id in completadas:
+        await avisar_mision(context, user_id, m_id)
 
     if gano:
         actualizar_tokens(user_id, config["premio_tokens"])
@@ -239,15 +244,18 @@ async def terminar_trivia(context, user_id, gano):
 
         stats = obtener_stats(user_id)
 
-        # Erudito (20 trivias ganadas)
         if stats[3] >= 20:
             if dar_logro(user_id, "erudito"):
                 await avisar_logro(context, user_id, "erudito")
 
-        # Cerebrito (10 seguidas mates+trivia)
         if stats[8] + stats[9] >= 10:
             if dar_logro(user_id, "cerebrito"):
                 await avisar_logro(context, user_id, "cerebrito")
+
+        # Misiones (trivia ganada)
+        completadas = sumar_progreso(user_id, "trivia_ganada")
+        for m_id in completadas:
+            await avisar_mision(context, user_id, m_id)
 
         texto = (
             f"🎉 *¡TRIVIA COMPLETADA!*\n"
@@ -287,6 +295,29 @@ async def avisar_logro(context, user_id, clave):
                 f"━━━━━━━━━━━━━━━━━━━\n"
                 f"{info['emoji']} *{info['nombre']}*\n"
                 f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
+
+
+async def avisar_mision(context, user_id, m_id):
+    from core.misiones import MISIONES
+    info = MISIONES.get(m_id)
+    if not info:
+        return
+    recompensa = f"+{info['tokens']}💰"
+    if info["xp"] > 0:
+        recompensa += f" +{info['xp']}⭐"
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🎯 *¡MISIÓN COMPLETADA!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"✅ {info['texto']}\n"
+                f"🎁 {recompensa}"
             ),
             parse_mode="Markdown"
         )

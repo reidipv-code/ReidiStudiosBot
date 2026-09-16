@@ -7,6 +7,7 @@ from telegram.ext import ContextTypes, ApplicationHandlerStop
 
 from core.db import obtener_datos, actualizar_tokens, sumar_xp, resetear_xp, DB_PATH
 from core.sesiones import iniciar_partida, terminar_partida
+from core.logros import dar_logro
 
 FRUTAS = ["🍎", "🍌", "🍇", "🍓", "🍊", "🍒", "🥝", "🍍", "🍑", "🍐",
           "🍋", "🍉", "🥭", "🫐", "🍈", "🥥", "🍅", "🥑", "🍆", "🌰"]
@@ -212,6 +213,11 @@ async def responder_memoria(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         actualizar_tokens(user_id, 2)
         sumar_xp(user_id, 2)
 
+        # Logro: Memorión (ronda 20)
+        if partida["ronda"] >= 20:
+            if dar_logro(user_id, "memorion"):
+                await avisar_logro(context, user_id, "memorion")
+
         if partida["ronda"] >= 50:
             await terminar_memoria(context, user_id, gano=True)
             raise ApplicationHandlerStop
@@ -260,6 +266,26 @@ async def terminar_memoria(context, user_id, gano):
         pass
 
     del partidas_memoria[user_id]
+
+
+async def avisar_logro(context, user_id, clave):
+    from core.logros import LOGROS
+    info = LOGROS.get(clave)
+    if not info:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"🏆 *¡LOGRO DESBLOQUEADO!*\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"{info['emoji']} *{info['nombre']}*\n"
+                f"_{info['descripcion']}_"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception:
+        pass
 
 
 async def revisar_timeouts_memoria(context) -> None:

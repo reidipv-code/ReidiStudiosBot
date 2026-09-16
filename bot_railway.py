@@ -17,6 +17,7 @@ from comandos.registro import reg, unreg, deletereg, confirmar_accion, setpais
 from comandos.perfil import perfil, tokens_cmd, nivel_cmd, rango_cmd, userslist
 from comandos.tutorial import tutorial
 from comandos.chat import chatm, msp, darTokens
+from comandos.top import top
 
 from admin import anunciar, giveTokens, giveXP, removeTokens, removeXP
 
@@ -55,14 +56,13 @@ COMANDOS_VALIDOS = [
     "/eventos", "/addevent", "/removeevent", "/editevent",
     "/giveTokens", "/giveXP", "/removeTokens", "/removeXP",
     "/dados", "/memoria", "/trivia", "/palabras", "/funks",
-    "/setpais", "/chatm", "/msp", "/darTokens"
+    "/setpais", "/chatm", "/msp", "/darTokens", "/top"
 ]
 
 COMANDOS_VALIDOS_LOWER = [c.lower() for c in COMANDOS_VALIDOS]
 
 
 async def rastrear_actividad(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Guarda la última actividad del usuario en cada mensaje."""
     if update.effective_user:
         try:
             actualizar_ultima_actividad(update.effective_user.id)
@@ -110,6 +110,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/reclamar - Recompensa diaria\n"
         "/eventos - Ver eventos\n"
         "/actividades - Menú de juegos\n"
+        "/top - Rankings\n"
         "/chatm - Ir al chat mundial\n"
         "/msp - Mensaje privado\n"
         "/darTokens - Transferir tokens\n"
@@ -123,6 +124,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/start\n/help\n/reg nombre.pais\n/unreg\n/deletereg\n"
         "/setpais pais\n/perfil\n/tokens\n/nivel\n/rango\n/userslist\n"
         "/bank\n/depositar\n/retirar\n/reclamar\n/eventos\n"
+        "/top tokens | /top nivel | /top all\n"
         "/chatm\n/msp nombre| mensaje\n/darTokens nombre cantidad mensaje\n"
         "/tutorial\n\n"
         "🎮 Juegos: /actividades",
@@ -204,7 +206,6 @@ def main() -> None:
         app.job_queue.run_repeating(revisar_descalificados, interval=30, first=30)
         print("✅ JobQueue configurado con 9 tareas programadas")
 
-    # GRUPO -100: rastrear actividad (SIEMPRE, antes que todo)
     app.add_handler(
         MessageHandler(filters.ALL, rastrear_actividad),
         group=-100
@@ -292,6 +293,7 @@ def main() -> None:
     app.add_handler(CommandHandler("chatm", chatm), group=10)
     app.add_handler(CommandHandler("msp", msp), group=10)
     app.add_handler(CommandHandler("darTokens", darTokens), group=10)
+    app.add_handler(CommandHandler("top", top), group=10)
 
     print("Bot corriendo...")
     app.run_polling()

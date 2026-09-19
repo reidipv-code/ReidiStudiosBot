@@ -1,7 +1,11 @@
 import os
 from dotenv import load_dotenv
 
-from telegram import Update
+from telegram import (
+    Update,
+    BotCommand,
+    BotCommandScopeAllPrivateChats,
+)
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -212,17 +216,6 @@ from juegos.memoria import (
 # ============================================================
 # PALABRAS
 # ============================================================
-#
-# IMPORTANTE:
-# La función en palabras.py se llama:
-#
-#     revisar_timeouts_palabras
-#
-# NO:
-#
-#     revisar_timeouts
-#
-# ============================================================
 
 from juegos.palabras import (
     init_palabras_db,
@@ -372,6 +365,192 @@ COMANDOS_VALIDOS_LOWER = [
     comando.lower()
     for comando in COMANDOS_VALIDOS
 ]
+
+
+# ============================================================
+# MENÚ DE COMANDOS DE TELEGRAM
+# ============================================================
+#
+# IMPORTANTE:
+# Esta lista es INDEPENDIENTE de COMANDOS_VALIDOS.
+#
+# Estos son los comandos que Telegram mostrará al usuario
+# cuando escriba "/".
+#
+# Los comandos internos/admin que no queremos mostrar
+# NO se incluyen aquí.
+#
+# Telegram permite hasta 100 comandos por lista.
+# ============================================================
+
+COMANDOS_MENU = [
+    BotCommand(
+        "reg",
+        "Registrarse",
+    ),
+    BotCommand(
+        "help",
+        "Ayuda",
+    ),
+    BotCommand(
+        "start",
+        "Iniciar chat",
+    ),
+    BotCommand(
+        "unreg",
+        "Cerrar sesión",
+    ),
+    BotCommand(
+        "deletereg",
+        "Eliminar cuenta",
+    ),
+    BotCommand(
+        "actividades",
+        "Pestaña de Actividades",
+    ),
+    BotCommand(
+        "perfil",
+        "Visita tu perfil",
+    ),
+    BotCommand(
+        "apostar",
+        "Apuesta con otros jugadores",
+    ),
+    BotCommand(
+        "ruleta",
+        "Rueda una ruleta y gana dinero",
+    ),
+    BotCommand(
+        "userslist",
+        "Muestra la lista de usuarios registrados",
+    ),
+    BotCommand(
+        "rango",
+        "Muestra tu rango",
+    ),
+    BotCommand(
+        "tokens",
+        "Muestra tu dinero",
+    ),
+    BotCommand(
+        "nivel",
+        "Muestra tu nivel",
+    ),
+    BotCommand(
+        "tutorial",
+        "Te explica detalladamente como funciona el bot",
+    ),
+    BotCommand(
+        "bank",
+        "Muestra tu información bancaria",
+    ),
+    BotCommand(
+        "depositar",
+        "Deposita una cantidad de dinero",
+    ),
+    BotCommand(
+        "retirar",
+        "Retira una cantidad de dinero",
+    ),
+    BotCommand(
+        "reclamar",
+        "Reclama tu recompensa diaria",
+    ),
+    BotCommand(
+        "eventos",
+        "Visita la lista de eventos disponibles",
+    ),
+    BotCommand(
+        "msp",
+        "Envía un mensaje privado a un usuario",
+    ),
+    BotCommand(
+        "top",
+        "Muestra el top 10 de jugadores",
+    ),
+    BotCommand(
+        "stats",
+        "Muestra las estadísticas del bot",
+    ),
+    BotCommand(
+        "sugerencia",
+        "Envía una sugerencia a un administrador",
+    ),
+    BotCommand(
+        "version",
+        "Ver la versión del bot",
+    ),
+    BotCommand(
+        "logros",
+        "Ver logros disponibles",
+    ),
+]
+
+
+# ============================================================
+# CONFIGURAR COMANDOS DE TELEGRAM
+# ============================================================
+#
+# Esta función se ejecuta automáticamente cuando el bot
+# arranca mediante app.run_polling().
+#
+# Así no necesitamos volver a usar /setcommands manualmente.
+# ============================================================
+
+async def configurar_comandos(
+    application: Application,
+) -> None:
+
+    try:
+
+        # ----------------------------------------------------
+        # Todos los chats privados
+        # ----------------------------------------------------
+
+        await application.bot.set_my_commands(
+            commands=COMANDOS_MENU,
+            scope=BotCommandScopeAllPrivateChats(),
+        )
+
+        # ----------------------------------------------------
+        # También configuramos el scope por defecto.
+        #
+        # Esto evita que quede una lista antigua en otros
+        # contextos donde Telegram pueda utilizar el scope
+        # por defecto.
+        # ----------------------------------------------------
+
+        await application.bot.set_my_commands(
+            commands=COMANDOS_MENU,
+        )
+
+        # ----------------------------------------------------
+        # Lista específica para usuarios cuyo idioma de
+        # Telegram sea español.
+        #
+        # Esto evita que una lista antigua configurada en
+        # BotFather para "es" tenga prioridad sobre la nueva.
+        # ----------------------------------------------------
+
+        await application.bot.set_my_commands(
+            commands=COMANDOS_MENU,
+            scope=BotCommandScopeAllPrivateChats(),
+            language_code="es",
+        )
+
+        print(
+            "✅ Menú de comandos de Telegram configurado correctamente"
+        )
+
+        print(
+            f"✅ {len(COMANDOS_MENU)} comandos visibles en el menú"
+        )
+
+    except Exception as e:
+
+        print(
+            f"❌ Error configurando comandos de Telegram: {e}"
+        )
 
 
 # ============================================================
@@ -904,6 +1083,7 @@ def main():
         Application
         .builder()
         .token(TOKEN)
+        .post_init(configurar_comandos)
         .build()
     )
 
@@ -963,11 +1143,6 @@ def main():
 
         # ----------------------------------------------------
         # PALABRAS
-        # ----------------------------------------------------
-        #
-        # IMPORTANTE:
-        # usamos revisar_timeouts_palabras
-        # porque así se llama realmente en palabras.py.
         # ----------------------------------------------------
 
         app.job_queue.run_repeating(
@@ -1667,15 +1842,6 @@ def main():
     # ========================================================
     # TOP AMIGOS
     # ========================================================
-    #
-    # Se registran las dos variantes:
-    #
-    # /top_amigos
-    # /topamigos
-    #
-    # Así no perdemos la función aunque el nombre mostrado
-    # en /help use una de las dos.
-    # ========================================================
 
     app.add_handler(
         CommandHandler(
@@ -1717,6 +1883,7 @@ def main():
     print("✅ Misiones registradas")
     print("✅ Sugerencias registradas")
     print("✅ Timeouts de juegos registrados")
+    print("✅ Menú de comandos configurado automáticamente")
     print("🚀 Iniciando polling...")
 
     app.run_polling()

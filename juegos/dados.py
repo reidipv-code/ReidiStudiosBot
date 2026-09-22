@@ -9,7 +9,7 @@ from core.misiones import sumar_progreso
 
 APUESTA_MIN = 10
 APUESTA_MAX = 500
-COOLDOWN = 300
+COOLDOWN = 100
 
 NUMEROS_GANADORES = [7, 11]
 

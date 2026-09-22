@@ -10,7 +10,7 @@ from core.misiones import sumar_progreso
 
 APUESTA_MIN = 5
 APUESTA_MAX = 1000
-COOLDOWN = 300
+COOLDOWN = 180
 EXPIRACION = 180
 
 apuestas_pendientes = {}

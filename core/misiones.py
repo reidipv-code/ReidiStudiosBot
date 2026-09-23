@@ -1,14 +1,10 @@
 import sqlite3
 import random
-from datetime import datetime, date
 
 from core.db import DB_PATH
 from core.config import ahora
 
 
-# ═══════════════════════════════════════════════════════════
-# DEFINICIÓN DE MISIONES
-# ═══════════════════════════════════════════════════════════
 MISIONES = {
     "jugar_3": {
         "texto": "Juega 3 partidas",
@@ -139,9 +135,6 @@ MISIONES = {
 }
 
 
-# ═══════════════════════════════════════════════════════════
-# BASE DE DATOS
-# ═══════════════════════════════════════════════════════════
 def init_misiones_db():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -157,40 +150,106 @@ def init_misiones_db():
         )
     """)
 
+    # Guarda los eventos aunque las misiones todavía no hayan sido abiertas.
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS misiones_eventos (
+            user_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            evento TEXT NOT NULL,
+            cantidad INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, fecha, evento)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
 
-def fecha_hoy() -> str:
+def fecha_hoy():
     return ahora().strftime("%Y-%m-%d")
 
 
 def generar_misiones_dia(user_id):
-    """Genera 5 misiones aleatorias para el usuario si no las tiene ya."""
     fecha = fecha_hoy()
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute(
-        "SELECT mision FROM misiones_usuario WHERE user_id = ? AND fecha = ?",
-        (user_id, fecha)
-    )
-    existentes = [r[0] for r in c.fetchall()]
+
+    c.execute("""
+        SELECT mision
+        FROM misiones_usuario
+        WHERE user_id = ? AND fecha = ?
+    """, (user_id, fecha))
+
+    existentes = [fila[0] for fila in c.fetchall()]
 
     if len(existentes) >= 5:
         conn.close()
         return existentes
 
-    # Elegir 5 misiones al azar que no estén ya
-    disponibles = [m for m in MISIONES.keys() if m not in existentes]
-    nuevas = random.sample(disponibles, min(5 - len(existentes), len(disponibles)))
+    disponibles = [
+        mision
+        for mision in MISIONES
+        if mision not in existentes
+    ]
 
-    for m in nuevas:
-        c.execute(
-            "INSERT OR IGNORE INTO misiones_usuario (user_id, fecha, mision, progreso, completada) "
-            "VALUES (?, ?, ?, 0, 0)",
-            (user_id, fecha, m)
+    nuevas = random.sample(
+        disponibles,
+        min(5 - len(existentes), len(disponibles))
+    )
+
+    for mision in nuevas:
+        info = MISIONES[mision]
+
+        # Recuperar actividad realizada ANTES de abrir /misiones.
+        c.execute("""
+            SELECT cantidad
+            FROM misiones_eventos
+            WHERE user_id = ?
+              AND fecha = ?
+              AND evento = ?
+        """, (
+            user_id,
+            fecha,
+            info["evento"]
+        ))
+
+        fila_evento = c.fetchone()
+
+        progreso = (
+            int(fila_evento[0])
+            if fila_evento
+            else 0
         )
+
+        progreso = min(
+            progreso,
+            info["objetivo"]
+        )
+
+        completada = (
+            1
+            if progreso >= info["objetivo"]
+            else 0
+        )
+
+        c.execute("""
+            INSERT OR IGNORE INTO misiones_usuario
+            (
+                user_id,
+                fecha,
+                mision,
+                progreso,
+                completada
+            )
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            user_id,
+            fecha,
+            mision,
+            progreso,
+            completada
+        ))
 
     conn.commit()
     conn.close()
@@ -199,61 +258,115 @@ def generar_misiones_dia(user_id):
 
 
 def obtener_misiones(user_id):
-    """Devuelve lista de (mision, progreso, completada)."""
     fecha = fecha_hoy()
+
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute(
-        "SELECT mision, progreso, completada FROM misiones_usuario "
-        "WHERE user_id = ? AND fecha = ?",
-        (user_id, fecha)
-    )
+
+    c.execute("""
+        SELECT mision, progreso, completada
+        FROM misiones_usuario
+        WHERE user_id = ? AND fecha = ?
+    """, (user_id, fecha))
+
     lista = c.fetchall()
+
     conn.close()
+
     return lista
 
 
 def sumar_progreso(user_id, evento, cantidad=1):
-    """
-    Suma progreso al usuario en las misiones que correspondan al evento.
-    Devuelve lista de misiones completadas nuevas.
-    """
     fecha = fecha_hoy()
+    cantidad = max(0, int(cantidad))
+
+    if cantidad <= 0:
+        return []
+
     completadas = []
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Buscar misiones de hoy que escuchen este evento
-    for m_id, info in MISIONES.items():
+    # PRIMERO se registra el evento.
+    # Esto permite que /dados, /trivia, etc. cuenten incluso
+    # aunque /misiones todavía no haya sido abierto.
+    c.execute("""
+        INSERT INTO misiones_eventos
+        (
+            user_id,
+            fecha,
+            evento,
+            cantidad
+        )
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, fecha, evento)
+        DO UPDATE SET cantidad = cantidad + excluded.cantidad
+    """, (
+        user_id,
+        fecha,
+        evento,
+        cantidad
+    ))
+
+    # Actualizar únicamente las misiones que ya existen.
+    for mision_id, info in MISIONES.items():
+
         if info["evento"] != evento:
             continue
 
-        c.execute(
-            "SELECT progreso, completada FROM misiones_usuario "
-            "WHERE user_id = ? AND fecha = ? AND mision = ?",
-            (user_id, fecha, m_id)
-        )
+        c.execute("""
+            SELECT progreso, completada
+            FROM misiones_usuario
+            WHERE user_id = ?
+              AND fecha = ?
+              AND mision = ?
+        """, (
+            user_id,
+            fecha,
+            mision_id
+        ))
+
         fila = c.fetchone()
+
         if not fila:
             continue
 
         progreso, completada = fila
+
         if completada:
             continue
 
-        nuevo = progreso + cantidad
-        hecha = 1 if nuevo >= info["objetivo"] else 0
-
-        c.execute(
-            "UPDATE misiones_usuario SET progreso = ?, completada = ? "
-            "WHERE user_id = ? AND fecha = ? AND mision = ?",
-            (nuevo, hecha, user_id, fecha, m_id)
+        nuevo = min(
+            progreso + cantidad,
+            info["objetivo"]
         )
 
+        hecha = (
+            1
+            if nuevo >= info["objetivo"]
+            else 0
+        )
+
+        c.execute("""
+            UPDATE misiones_usuario
+            SET progreso = ?,
+                completada = ?
+            WHERE user_id = ?
+              AND fecha = ?
+              AND mision = ?
+        """, (
+            nuevo,
+            hecha,
+            user_id,
+            fecha,
+            mision_id
+        ))
+
         if hecha:
-            completadas.append(m_id)
+            completadas.append(mision_id)
 
     conn.commit()
     conn.close()
+
     return completadas

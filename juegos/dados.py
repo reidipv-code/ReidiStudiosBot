@@ -10,7 +10,7 @@ from core.tienda import aplicar_bonus_xp, cantidad_con_bonus_tokens
 
 APUESTA_MIN = 10
 APUESTA_MAX = 500
-COOLDOWN = 300
+COOLDOWN = 90
 
 NUMEROS_GANADORES = [7, 11]
 

@@ -30,6 +30,10 @@ from core.tienda import equipados_usuario
 from core.perfil_visual import generar_perfil
 
 
+# ============================================================
+# AVATAR
+# ============================================================
+
 async def obtener_avatar_telegram(
     context,
     user_id,
@@ -42,6 +46,7 @@ async def obtener_avatar_telegram(
         )
 
         if fotos.total_count > 0:
+
             foto = fotos.photos[0][-1]
 
             archivo = await context.bot.get_file(
@@ -63,27 +68,14 @@ async def obtener_avatar_telegram(
 
     return Image.new(
         "RGBA",
-        (320, 320),
+        (400, 400),
         (35, 40, 55, 255),
     )
 
 
-def _pais_visual(pais):
-    if not pais:
-        return "No configurado"
-
-    try:
-        bandera = obtener_bandera(pais)
-    except Exception:
-        bandera = ""
-
-    try:
-        nombre = nombre_pais(pais)
-    except Exception:
-        nombre = str(pais)
-
-    return f"{bandera} {nombre}".strip()
-
+# ============================================================
+# PERFIL
+# ============================================================
 
 async def _enviar_perfil(
     update,
@@ -96,8 +88,11 @@ async def _enviar_perfil(
     user_id,
     context,
     mostrar_logros=True,
+    propietario=False,
 ):
-    equipados = equipados_usuario(user_id)
+    equipados = equipados_usuario(
+        user_id
+    )
 
     avatar = await obtener_avatar_telegram(
         context,
@@ -114,7 +109,9 @@ async def _enviar_perfil(
         nivel,
     )
 
-    rango = rango_por_nivel(nivel)
+    rango = rango_por_nivel(
+        nivel
+    )
 
     try:
         resultado = generar_perfil(
@@ -124,21 +121,32 @@ async def _enviar_perfil(
             xp_total=xp_total,
             xp_siguiente=xp_siguiente,
             tokens=tokens,
-            pais=_pais_visual(pais),
+
+            # IMPORTANTE:
+            # se manda el código real del país,
+            # no "🇨🇺 Cuba".
+            pais=pais,
+
             avatar=avatar,
             equipados=equipados,
         )
+
     except Exception as error:
+
         await update.message.reply_text(
-            f"❌ Error generando el perfil:\n"
+            "❌ Error generando el perfil:\n"
             f"`{type(error).__name__}: {error}`",
             parse_mode="Markdown",
         )
+
         return
 
     contenido, mime, animado = resultado
 
-    archivo = io.BytesIO(contenido)
+    archivo = io.BytesIO(
+        contenido
+    )
+
     archivo.seek(0)
 
     archivo_nombre = (
@@ -153,39 +161,147 @@ async def _enviar_perfil(
         else "⚫ Offline"
     )
 
-    logros_usr = logros_de_usuario(user_id)
-    total_logros = len(LOGROS)
+    # ========================================================
+    # LOGROS
+    # ========================================================
+
+    logros_usr = logros_de_usuario(
+        user_id
+    )
+
+    total_logros = len(
+        LOGROS
+    )
 
     emojis_logros = ""
 
-    if mostrar_logros and logros_usr:
+    if (
+        mostrar_logros
+        and logros_usr
+    ):
+
         emojis = []
 
         for clave in logros_usr:
-            if clave in LOGROS:
-                try:
+
+            if clave not in LOGROS:
+                continue
+
+            try:
+                emoji = LOGROS[clave]["emoji"]
+
+                if emoji:
                     emojis.append(
-                        LOGROS[clave]["emoji"]
+                        emoji
                     )
-                except Exception:
-                    pass
+
+            except Exception:
+                pass
 
         if emojis:
+
             emojis_logros = (
                 "\n🏆 Logros: "
                 + " ".join(emojis)
                 + f" ({len(logros_usr)}/{total_logros})"
             )
 
-    caption = (
-        f"👤 *{nombre.upper()}*\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 ID: *#{id_interno}*\n"
-        f"{estado}"
-        f"{emojis_logros}"
+    # ========================================================
+    # INFORMACIÓN DE TELEGRAM
+    # ========================================================
+
+    telegram_username = None
+
+    try:
+
+        chat_usuario = await context.bot.get_chat(
+            user_id
+        )
+
+        telegram_username = getattr(
+            chat_usuario,
+            "username",
+            None
+        )
+
+    except Exception:
+        pass
+
+    # ========================================================
+    # BOT
+    # ========================================================
+
+    bot_id = getattr(
+        context.bot,
+        "id",
+        None
     )
 
+    bot_username = getattr(
+        context.bot,
+        "username",
+        None
+    )
+
+    # ========================================================
+    # CAPTION
+    # ========================================================
+
+    caption = (
+        f"👤 *{nombre.upper()}*\n"
+        "━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID interno: *#{id_interno}*\n"
+        f"{estado}"
+    )
+
+    # Username público.
+    if telegram_username:
+
+        caption += (
+            f"\n👤 Telegram: *@{telegram_username}*"
+        )
+
+    # --------------------------------------------------------
+    # PRIVACIDAD
+    #
+    # El ID numérico de Telegram:
+    # SOLO aparece si el perfil pertenece al usuario
+    # que está ejecutando /perfil.
+    # --------------------------------------------------------
+
+    if propietario:
+
+        caption += (
+            f"\n🔐 Tu ID de Telegram: "
+            f"`{user_id}`"
+        )
+
+    # --------------------------------------------------------
+    # BOT
+    #
+    # El ID del bot no pertenece al usuario y puede mostrarse.
+    # --------------------------------------------------------
+
+    if bot_id is not None:
+
+        caption += (
+            f"\n🤖 ID del bot: `{bot_id}`"
+        )
+
+    if bot_username:
+
+        caption += (
+            f"\n🤖 Bot: *@{bot_username}*"
+        )
+
+    caption += emojis_logros
+
+    # ========================================================
+    # ENVÍO
+    # ========================================================
+
     if animado:
+
         await update.message.reply_animation(
             animation=InputFile(
                 archivo,
@@ -194,7 +310,11 @@ async def _enviar_perfil(
             caption=caption,
             parse_mode="Markdown",
         )
+
     else:
+
+        # Se mantiene send_photo para que Telegram
+        # muestre la imagen directamente.
         await update.message.reply_photo(
             photo=InputFile(
                 archivo,
@@ -205,21 +325,34 @@ async def _enviar_perfil(
         )
 
 
+# ============================================================
+# /PERFIL
+# ============================================================
+
 async def perfil(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
-    user_id = update.effective_user.id
+    viewer_id = update.effective_user.id
 
-    if not esta_registrado(user_id):
+    if not esta_registrado(
+        viewer_id
+    ):
+
         await update.message.reply_text(
-            "⚠️ Primero regístrate con /reg nombre.pais"
+            "⚠️ Primero regístrate con "
+            "/reg nombre.pais"
         )
+
         return
 
+    # ========================================================
     # /perfil nombre
+    # ========================================================
+
     if context.args:
+
         nombre_buscado = " ".join(
             context.args
         ).strip()
@@ -229,19 +362,26 @@ async def perfil(
         )
 
         if otro_id is None:
+
             await update.message.reply_text(
-                f"❌ No existe ningún usuario con el nombre "
+                f"❌ No existe ningún usuario "
+                f"con el nombre "
                 f"*{nombre_buscado}*.",
                 parse_mode="Markdown",
             )
+
             return
 
-        datos = obtener_datos(otro_id)
+        datos = obtener_datos(
+            otro_id
+        )
 
         if datos is None:
+
             await update.message.reply_text(
                 "❌ No se pudo obtener el perfil."
             )
+
             return
 
         (
@@ -253,7 +393,14 @@ async def perfil(
             sesion,
         ) = datos
 
-        pais = obtener_pais(otro_id)
+        pais = obtener_pais(
+            otro_id
+        )
+
+        # ====================================================
+        # PRIVACIDAD:
+        # FALSE porque estamos viendo a otra persona.
+        # ====================================================
 
         await _enviar_perfil(
             update=update,
@@ -266,17 +413,25 @@ async def perfil(
             user_id=otro_id,
             context=context,
             mostrar_logros=True,
+            propietario=False,
         )
 
         return
 
+    # ========================================================
     # /perfil
-    datos = obtener_datos(user_id)
+    # ========================================================
+
+    datos = obtener_datos(
+        viewer_id
+    )
 
     if datos is None:
+
         await update.message.reply_text(
             "❌ No se pudo obtener tu perfil."
         )
+
         return
 
     (
@@ -288,7 +443,14 @@ async def perfil(
         sesion,
     ) = datos
 
-    pais = obtener_pais(user_id)
+    pais = obtener_pais(
+        viewer_id
+    )
+
+    # ========================================================
+    # PRIVACIDAD:
+    # TRUE porque es el propio perfil.
+    # ========================================================
 
     await _enviar_perfil(
         update=update,
@@ -298,11 +460,16 @@ async def perfil(
         xp=xp,
         nivel=nivel,
         pais=pais,
-        user_id=user_id,
+        user_id=viewer_id,
         context=context,
         mostrar_logros=True,
+        propietario=True,
     )
 
+
+# ============================================================
+# /TOKENS
+# ============================================================
 
 async def tokens_cmd(
     update: Update,
@@ -311,18 +478,26 @@ async def tokens_cmd(
 
     user_id = update.effective_user.id
 
-    if not esta_registrado(user_id):
+    if not esta_registrado(
+        user_id
+    ):
+
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
+
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
     if datos is None:
+
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
+
         return
 
     await update.message.reply_text(
@@ -331,6 +506,10 @@ async def tokens_cmd(
     )
 
 
+# ============================================================
+# /NIVEL
+# ============================================================
+
 async def nivel_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -338,18 +517,26 @@ async def nivel_cmd(
 
     user_id = update.effective_user.id
 
-    if not esta_registrado(user_id):
+    if not esta_registrado(
+        user_id
+    ):
+
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
+
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
     if datos is None:
+
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
+
         return
 
     (
@@ -363,11 +550,11 @@ async def nivel_cmd(
 
     xp_total = xp_acumulada_actual(
         xp,
-        nivel,
+        nivel
     )
 
     xp_siguiente = xp_para_siguiente_nivel(
-        nivel,
+        nivel
     )
 
     await update.message.reply_text(
@@ -378,6 +565,10 @@ async def nivel_cmd(
     )
 
 
+# ============================================================
+# /RANGO
+# ============================================================
+
 async def rango_cmd(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -385,18 +576,26 @@ async def rango_cmd(
 
     user_id = update.effective_user.id
 
-    if not esta_registrado(user_id):
+    if not esta_registrado(
+        user_id
+    ):
+
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
+
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
     if datos is None:
+
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
+
         return
 
     await update.message.reply_text(
@@ -405,6 +604,10 @@ async def rango_cmd(
     )
 
 
+# ============================================================
+# /USERSLIST
+# ============================================================
+
 async def userslist(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
@@ -412,18 +615,24 @@ async def userslist(
 
     user_id = update.effective_user.id
 
-    if not esta_registrado(user_id):
+    if not esta_registrado(
+        user_id
+    ):
+
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
+
         return
 
     lista = obtener_lista_usuarios()
 
     if not lista:
+
         await update.message.reply_text(
             "📋 No hay usuarios registrados."
         )
+
         return
 
     texto = (
@@ -432,6 +641,7 @@ async def userslist(
     )
 
     for id_interno, nombre in lista:
+
         texto += (
             f"#{id_interno} - {nombre}\n"
         )
@@ -446,5 +656,5 @@ async def userslist(
     )
 
 
-# Compatibilidad por si otro archivo usa userlist.
+# Compatibilidad con otros archivos.
 userlist = userslist

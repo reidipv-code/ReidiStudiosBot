@@ -14,8 +14,8 @@ from core.tienda import aplicar_bonus_xp, cantidad_con_bonus_tokens
 FRUTAS = ["🍎", "🍌", "🍇", "🍓", "🍊", "🍒", "🥝", "🍍", "🍑", "🍐",
           "🍋", "🍉", "🥭", "🫐", "🍈", "🥥", "🍅", "🥑", "🍆", "🌰"]
 
-COOLDOWN_PERDIDA = 420
-COOLDOWN_VICTORIA = 600
+COOLDOWN_PERDIDA = 190
+COOLDOWN_VICTORIA = 240
 
 partidas_memoria = {}
 

@@ -19,7 +19,7 @@ CONFIG_DIFICULTAD = {
     "facil":   {"tiempo": 30,  "premio_tokens": 30, "premio_xp": 30},
     "normal":  {"tiempo": 50,  "premio_tokens": 50, "premio_xp": 50},
     "dificil": {"tiempo": 100, "premio_tokens": 80, "premio_xp": 80},
-
+}
 
 TODAS_CATEGORIAS = {**TRIVIA, **MUNDO}
 

@@ -9,8 +9,8 @@ from core.sesiones import iniciar_partida, terminar_partida
 from core.misiones import sumar_progreso
 from core.tienda import aplicar_bonus_xp, cantidad_con_bonus_tokens
 
-COOLDOWN_PERDIDA = 240
-COOLDOWN_VICTORIA = 195
+COOLDOWN_PERDIDA = 195
+COOLDOWN_VICTORIA = 240
 TIEMPO = 40
 CANCIONES_POR_PARTIDA = 3
 

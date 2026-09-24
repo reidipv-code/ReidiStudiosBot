@@ -1,4 +1,6 @@
-from telegram import Update
+import io
+
+from telegram import Update, InputFile
 from telegram.ext import ContextTypes
 
 from core.db import (
@@ -25,14 +27,66 @@ from core.logros import (
 )
 
 from core.tienda import (
-    init_tienda_db,
     equipados_usuario,
 )
 
+from core.perfil_visual import (
+    generar_perfil,
+)
+
+
+# ============================================================
+# AVATAR DE TELEGRAM
+# ============================================================
+
+async def obtener_avatar_telegram(
+    context,
+    user_id,
+    nombre,
+):
+    try:
+        fotos = await context.bot.get_user_profile_photos(
+            user_id=user_id,
+            limit=1,
+        )
+
+        if fotos.total_count > 0:
+            foto = fotos.photos[0][-1]
+
+            archivo = await context.bot.get_file(
+                foto.file_id
+            )
+
+            datos = await archivo.download_as_bytearray()
+
+            from PIL import Image
+
+            imagen = Image.open(
+                io.BytesIO(datos)
+            ).convert("RGBA")
+
+            return imagen
+
+    except Exception:
+        pass
+
+    # Si no se pudo obtener foto:
+    from PIL import Image
+
+    return Image.new(
+        "RGBA",
+        (320, 320),
+        (35, 40, 55, 255),
+    )
+
+
+# ============================================================
+# PERFIL
+# ============================================================
 
 async def perfil(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
     user_id = update.effective_user.id
@@ -42,8 +96,6 @@ async def perfil(
             "⚠️ Primero regístrate con /reg nombre.pais"
         )
         return
-
-    init_tienda_db()
 
     # ========================================================
     # PERFIL DE OTRO USUARIO
@@ -60,13 +112,15 @@ async def perfil(
 
         if otro_id is None:
             await update.message.reply_text(
-                f"❌ No existe ningún usuario "
-                f"con el nombre *{nombre_buscado}*.",
-                parse_mode="Markdown"
+                f"❌ No existe ningún usuario con el nombre "
+                f"*{nombre_buscado}*.",
+                parse_mode="Markdown",
             )
             return
 
-        datos = obtener_datos(otro_id)
+        datos = obtener_datos(
+            otro_id
+        )
 
         if datos is None:
             await update.message.reply_text(
@@ -80,23 +134,101 @@ async def perfil(
             tokens,
             xp,
             nivel,
-            sesion
+            sesion,
         ) = datos
 
-        pais = obtener_pais(otro_id)
+        # ----------------------------------------------------
+        # País
+        # ----------------------------------------------------
+
+        pais = obtener_pais(
+            otro_id
+        )
 
         if pais:
-            bandera = obtener_bandera(pais)
-            nombre_pais_str = nombre_pais(pais)
+            bandera = obtener_bandera(
+                pais
+            )
 
-            linea_pais = (
-                f"{bandera} País: "
-                f"*{nombre_pais_str}*"
+            nombre_pais_str = nombre_pais(
+                pais
             )
+
+            pais_visual = (
+                f"{bandera} {nombre_pais_str}"
+            )
+
         else:
-            linea_pais = (
-                "🌎 País: *No configurado*"
-            )
+            pais_visual = "No configurado"
+
+        # ----------------------------------------------------
+        # Cosméticos
+        # ----------------------------------------------------
+
+        equipados = equipados_usuario(
+            otro_id
+        )
+
+        # ----------------------------------------------------
+        # Avatar
+        # ----------------------------------------------------
+
+        avatar = await obtener_avatar_telegram(
+            context,
+            otro_id,
+            nombre,
+        )
+
+        # ----------------------------------------------------
+        # XP
+        # ----------------------------------------------------
+
+        xp_total = xp_acumulada_actual(
+            xp,
+            nivel,
+        )
+
+        xp_siguiente = xp_para_siguiente_nivel(
+            nivel,
+        )
+
+        rango = rango_por_nivel(
+            nivel
+        )
+
+        # ----------------------------------------------------
+        # Generar imagen
+        # ----------------------------------------------------
+
+        datos_imagen = generar_perfil(
+            nombre=nombre,
+            nivel=nivel,
+            rango=rango,
+            xp_total=xp_total,
+            xp_siguiente=xp_siguiente,
+            tokens=tokens,
+            pais=pais_visual,
+            avatar=avatar,
+            equipados=equipados,
+        )
+
+        contenido, mime, animado = datos_imagen
+
+        archivo = io.BytesIO(
+            contenido
+        )
+
+        archivo.seek(0)
+
+        archivo_nombre = (
+            "perfil.gif"
+            if animado
+            else "perfil.png"
+        )
+
+        # ----------------------------------------------------
+        # Información inferior
+        # ----------------------------------------------------
 
         estado = (
             "🟢 Online"
@@ -108,60 +240,36 @@ async def perfil(
             otro_id
         )
 
-        total_logros = len(LOGROS)
-
-        linea_logros = (
-            f"🏆 Logros: "
-            f"*{len(logros_usr)}/{total_logros}*"
+        total_logros = len(
+            LOGROS
         )
 
-        equipados = equipados_usuario(
-            otro_id
-        )
-
-        cosmeticos = ""
-
-        etiquetas = (
-            ("titulo", "🏷️ Título"),
-            ("marco", "🖼️ Marco"),
-            ("marco_animado", "🔥 Marco animado"),
-            ("efecto", "✨ Efecto"),
-            ("fondo", "🌌 Fondo"),
-            ("color", "🎨 Color"),
-            ("insignia", "🏅 Insignia"),
-        )
-
-        tipos_mostrados = set()
-
-        for tipo, etiqueta in etiquetas:
-
-            if tipo == "marco_animado" and "marco" in equipados:
-                continue
-
-            if tipo in tipos_mostrados:
-                continue
-
-            if tipo in equipados and equipados[tipo]:
-                cosmeticos += (
-                    f"\n{etiqueta}: "
-                    f"*{equipados[tipo]['nombre']}*"
-                )
-
-                tipos_mostrados.add(tipo)
-
-        await update.message.reply_text(
+        caption = (
             f"👤 *PERFIL DE {nombre.upper()}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 ID: *#{id_interno}*\n"
-            f"{linea_pais}\n"
-            f"🎖️ Rango: "
-            f"{rango_por_nivel(nivel)}\n"
-            f"⭐ Nivel: *{nivel}*\n"
-            f"{linea_logros}"
-            f"{cosmeticos}\n"
-            f"{estado}",
-            parse_mode="Markdown"
+            f"🏆 Logros: *{len(logros_usr)}/{total_logros}*\n"
+            f"{estado}"
         )
+
+        if animado:
+            await update.message.reply_animation(
+                animation=InputFile(
+                    archivo,
+                    filename=archivo_nombre,
+                ),
+                caption=caption,
+                parse_mode="Markdown",
+            )
+        else:
+            await update.message.reply_photo(
+                photo=InputFile(
+                    archivo,
+                    filename=archivo_nombre,
+                ),
+                caption=caption,
+                parse_mode="Markdown",
+            )
 
         return
 
@@ -169,7 +277,15 @@ async def perfil(
     # PERFIL PROPIO
     # ========================================================
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
+
+    if datos is None:
+        await update.message.reply_text(
+            "❌ No se pudo obtener tu perfil."
+        )
+        return
 
     (
         nombre,
@@ -177,37 +293,108 @@ async def perfil(
         tokens,
         xp,
         nivel,
-        sesion
+        sesion,
     ) = datos
+
+    # --------------------------------------------------------
+    # XP
+    # --------------------------------------------------------
 
     barra = barra_progreso(
         xp,
-        nivel
+        nivel,
     )
 
-    xp_actual = xp_acumulada_actual(
+    xp_total = xp_acumulada_actual(
         xp,
-        nivel
+        nivel,
     )
 
     xp_siguiente = xp_para_siguiente_nivel(
+        nivel,
+    )
+
+    # --------------------------------------------------------
+    # País
+    # --------------------------------------------------------
+
+    pais = obtener_pais(
+        user_id
+    )
+
+    if pais:
+        bandera = obtener_bandera(
+            pais
+        )
+
+        nombre_pais_str = nombre_pais(
+            pais
+        )
+
+        pais_visual = (
+            f"{bandera} {nombre_pais_str}"
+        )
+
+    else:
+        pais_visual = "No configurado"
+
+    # --------------------------------------------------------
+    # Cosméticos
+    # --------------------------------------------------------
+
+    equipados = equipados_usuario(
+        user_id
+    )
+
+    # --------------------------------------------------------
+    # Avatar
+    # --------------------------------------------------------
+
+    avatar = await obtener_avatar_telegram(
+        context,
+        user_id,
+        nombre,
+    )
+
+    # --------------------------------------------------------
+    # Rango
+    # --------------------------------------------------------
+
+    rango = rango_por_nivel(
         nivel
     )
 
-    pais = obtener_pais(user_id)
+    # --------------------------------------------------------
+    # Generar tarjeta visual
+    # --------------------------------------------------------
 
-    if pais:
-        bandera = obtener_bandera(pais)
-        nombre_pais_str = nombre_pais(pais)
+    contenido, mime, animado = generar_perfil(
+        nombre=nombre,
+        nivel=nivel,
+        rango=rango,
+        xp_total=xp_total,
+        xp_siguiente=xp_siguiente,
+        tokens=tokens,
+        pais=pais_visual,
+        avatar=avatar,
+        equipados=equipados,
+    )
 
-        linea_pais = (
-            f"\n{bandera} País: "
-            f"*{nombre_pais_str}*"
-        )
-    else:
-        linea_pais = (
-            "\n🌎 País: *No configurado*"
-        )
+    archivo = io.BytesIO(
+        contenido
+    )
+
+    archivo.seek(0)
+
+    archivo_nombre = (
+        "perfil.gif"
+        if animado
+        else "perfil.png"
+    )
+
+    # --------------------------------------------------------
+    # Información adicional
+    # --------------------------------------------------------
 
     estado = (
         "🟢 Online"
@@ -215,80 +402,69 @@ async def perfil(
         else "⚫ Offline"
     )
 
-    equipados = equipados_usuario(
-        user_id
-    )
-
-    cosmeticos = ""
-
-    etiquetas = (
-        ("titulo", "🏷️ Título"),
-        ("marco", "🖼️ Marco"),
-        ("marco_animado", "🔥 Marco animado"),
-        ("efecto", "✨ Efecto"),
-        ("fondo", "🌌 Fondo"),
-        ("color", "🎨 Color"),
-        ("insignia", "🏅 Insignia"),
-    )
-
-    for tipo, etiqueta in etiquetas:
-
-        # equipados_usuario() unifica el marco animado
-        # en el slot "marco".
-        if tipo == "marco_animado":
-            continue
-
-        if tipo in equipados and equipados[tipo]:
-            cosmeticos += (
-                f"\n{etiqueta}: "
-                f"*{equipados[tipo]['nombre']}*"
-            )
-
     logros_usr = logros_de_usuario(
         user_id
     )
 
-    total_logros = len(LOGROS)
+    total_logros = len(
+        LOGROS
+    )
 
     emojis_logros = ""
 
     if logros_usr:
-        emojis_logros = (
-            "\n\n🏆 *Logros:* "
-        )
+        emojis_logros = "\n🏆 Logros: "
 
         for clave in logros_usr:
             if clave in LOGROS:
                 emojis_logros += (
-                    LOGROS[clave]["emoji"] +
-                    " "
+                    LOGROS[clave]["emoji"]
+                    + " "
                 )
 
         emojis_logros += (
-            f"\n({len(logros_usr)}/{total_logros})"
+            f"({len(logros_usr)}/{total_logros})"
         )
 
-    await update.message.reply_text(
+    caption = (
         f"👤 *{nombre.upper()}*\n"
         f"━━━━━━━━━━━━━━━━━━━\n"
         f"🆔 ID: *#{id_interno}*\n"
-        f"🔑 Telegram: `{user_id}`\n"
-        f"🎖️ {rango_por_nivel(nivel)}\n"
-        f"⭐ Nivel: *{nivel}*\n"
-        f"✨ XP: {xp_actual}/{xp_siguiente}\n"
-        f"📊 {barra}\n"
-        f"💰 {tokens} tokens"
-        f"{cosmeticos}"
-        f"{linea_pais}\n"
         f"{estado}"
-        f"{emojis_logros}",
-        parse_mode="Markdown"
+        f"{emojis_logros}"
     )
 
+    # --------------------------------------------------------
+    # ENVIAR IMAGEN/GIF
+    # --------------------------------------------------------
+
+    if animado:
+        await update.message.reply_animation(
+            animation=InputFile(
+                archivo,
+                filename=archivo_nombre,
+            ),
+            caption=caption,
+            parse_mode="Markdown",
+        )
+    else:
+        await update.message.reply_photo(
+            photo=InputFile(
+                archivo,
+                filename=archivo_nombre,
+            ),
+            caption=caption,
+            parse_mode="Markdown",
+        )
+
+
+# ============================================================
+# TOKENS
+# ============================================================
 
 async def tokens_cmd(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
     user_id = update.effective_user.id
@@ -299,17 +475,23 @@ async def tokens_cmd(
         )
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
     await update.message.reply_text(
         f"💰 *{datos[2]}* tokens",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
+# ============================================================
+# NIVEL
+# ============================================================
+
 async def nivel_cmd(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
     user_id = update.effective_user.id
@@ -320,30 +502,43 @@ async def nivel_cmd(
         )
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
-    nombre, _, _, xp, nivel, _ = datos
-
-    xp_actual = xp_acumulada_actual(
+    (
+        nombre,
+        _,
+        _,
         xp,
-        nivel
+        nivel,
+        _,
+    ) = datos
+
+    xp_total = xp_acumulada_actual(
+        xp,
+        nivel,
     )
 
     xp_siguiente = xp_para_siguiente_nivel(
-        nivel
+        nivel,
     )
 
     await update.message.reply_text(
         f"⭐ *{nombre}* - Nivel {nivel}\n"
-        f"✨ XP: {xp_actual}/{xp_siguiente}\n"
+        f"✨ XP: {xp_total}/{xp_siguiente}\n"
         f"📊 {barra_progreso(xp, nivel)}",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
+# ============================================================
+# RANGO
+# ============================================================
+
 async def rango_cmd(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
     user_id = update.effective_user.id
@@ -354,17 +549,23 @@ async def rango_cmd(
         )
         return
 
-    datos = obtener_datos(user_id)
+    datos = obtener_datos(
+        user_id
+    )
 
     await update.message.reply_text(
         f"🎖️ {rango_por_nivel(datos[4])}",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )
 
 
+# ============================================================
+# LISTA DE USUARIOS
+# ============================================================
+
 async def userslist(
     update: Update,
-    context: ContextTypes.DEFAULT_TYPE
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
 
     user_id = update.effective_user.id
@@ -399,5 +600,5 @@ async def userslist(
 
     await update.message.reply_text(
         texto,
-        parse_mode="Markdown"
+        parse_mode="Markdown",
     )

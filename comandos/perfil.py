@@ -16,11 +16,6 @@ from core.db import (
     esta_online,
 )
 
-from core.paises import (
-    obtener_nombre as nombre_pais,
-    obtener_bandera,
-)
-
 from core.logros import (
     LOGROS,
     logros_de_usuario,
@@ -46,7 +41,6 @@ async def obtener_avatar_telegram(
         )
 
         if fotos.total_count > 0:
-
             foto = fotos.photos[0][-1]
 
             archivo = await context.bot.get_file(
@@ -74,7 +68,7 @@ async def obtener_avatar_telegram(
 
 
 # ============================================================
-# PERFIL
+# ENVIAR PERFIL
 # ============================================================
 
 async def _enviar_perfil(
@@ -113,32 +107,48 @@ async def _enviar_perfil(
         nivel
     )
 
+    # ========================================================
+    # GENERAR PERFIL
+    # ========================================================
+
     try:
         resultado = generar_perfil(
             nombre=nombre,
             nivel=nivel,
-            rango=rango,
-            xp_total=xp_total,
-            xp_siguiente=xp_siguiente,
-            tokens=tokens,
 
             # IMPORTANTE:
-            # se manda el código real del país,
-            # no "🇨🇺 Cuba".
-            pais=pais,
+            # El generador utiliza xp_actual,
+            # NO xp_total.
+            xp_actual=xp_total,
 
+            xp_siguiente=xp_siguiente,
+            rango=rango,
+            pais=pais,
             avatar=avatar,
             equipados=equipados,
+
+            # Datos que aparecen dentro de la imagen.
+            id_interno=id_interno,
+            telegram_id=user_id,
+            bot_id=getattr(
+                context.bot,
+                "id",
+                None,
+            ),
+
+            # Solo muestra el Telegram ID
+            # cuando es el propio perfil.
+            propietario=propietario,
+
+            tokens=tokens,
         )
 
     except Exception as error:
-
         await update.message.reply_text(
             "❌ Error generando el perfil:\n"
             f"`{type(error).__name__}: {error}`",
             parse_mode="Markdown",
         )
-
         return
 
     contenido, mime, animado = resultado
@@ -149,11 +159,9 @@ async def _enviar_perfil(
 
     archivo.seek(0)
 
-    archivo_nombre = (
-        "perfil.gif"
-        if animado
-        else "perfil.png"
-    )
+    # ========================================================
+    # ESTADO
+    # ========================================================
 
     estado = (
         "🟢 Online"
@@ -175,10 +183,7 @@ async def _enviar_perfil(
 
     emojis_logros = ""
 
-    if (
-        mostrar_logros
-        and logros_usr
-    ):
+    if mostrar_logros and logros_usr:
 
         emojis = []
 
@@ -199,7 +204,6 @@ async def _enviar_perfil(
                 pass
 
         if emojis:
-
             emojis_logros = (
                 "\n🏆 Logros: "
                 + " ".join(emojis)
@@ -207,97 +211,22 @@ async def _enviar_perfil(
             )
 
     # ========================================================
-    # INFORMACIÓN DE TELEGRAM
-    # ========================================================
-
-    telegram_username = None
-
-    try:
-
-        chat_usuario = await context.bot.get_chat(
-            user_id
-        )
-
-        telegram_username = getattr(
-            chat_usuario,
-            "username",
-            None
-        )
-
-    except Exception:
-        pass
-
-    # ========================================================
-    # BOT
-    # ========================================================
-
-    bot_id = getattr(
-        context.bot,
-        "id",
-        None
-    )
-
-    bot_username = getattr(
-        context.bot,
-        "username",
-        None
-    )
-
-    # ========================================================
     # CAPTION
+    #
+    # Los IDs están dentro de la imagen.
+    # No mostramos usernames ni @.
     # ========================================================
 
     caption = (
         f"👤 *{nombre.upper()}*\n"
         "━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 ID interno: *#{id_interno}*\n"
         f"{estado}"
     )
-
-    # Username público.
-    if telegram_username:
-
-        caption += (
-            f"\n👤 Telegram: *@{telegram_username}*"
-        )
-
-    # --------------------------------------------------------
-    # PRIVACIDAD
-    #
-    # El ID numérico de Telegram:
-    # SOLO aparece si el perfil pertenece al usuario
-    # que está ejecutando /perfil.
-    # --------------------------------------------------------
-
-    if propietario:
-
-        caption += (
-            f"\n🔐 Tu ID de Telegram: "
-            f"`{user_id}`"
-        )
-
-    # --------------------------------------------------------
-    # BOT
-    #
-    # El ID del bot no pertenece al usuario y puede mostrarse.
-    # --------------------------------------------------------
-
-    if bot_id is not None:
-
-        caption += (
-            f"\n🤖 ID del bot: `{bot_id}`"
-        )
-
-    if bot_username:
-
-        caption += (
-            f"\n🤖 Bot: *@{bot_username}*"
-        )
 
     caption += emojis_logros
 
     # ========================================================
-    # ENVÍO
+    # ENVIAR IMAGEN
     # ========================================================
 
     if animado:
@@ -305,7 +234,7 @@ async def _enviar_perfil(
         await update.message.reply_animation(
             animation=InputFile(
                 archivo,
-                filename=archivo_nombre,
+                filename="perfil.gif",
             ),
             caption=caption,
             parse_mode="Markdown",
@@ -313,12 +242,10 @@ async def _enviar_perfil(
 
     else:
 
-        # Se mantiene send_photo para que Telegram
-        # muestre la imagen directamente.
         await update.message.reply_photo(
             photo=InputFile(
                 archivo,
-                filename=archivo_nombre,
+                filename="perfil.png",
             ),
             caption=caption,
             parse_mode="Markdown",
@@ -336,26 +263,29 @@ async def perfil(
 
     viewer_id = update.effective_user.id
 
+    # ========================================================
+    # COMPROBAR REGISTRO
+    # ========================================================
+
     if not esta_registrado(
         viewer_id
     ):
-
         await update.message.reply_text(
             "⚠️ Primero regístrate con "
             "/reg nombre.pais"
         )
-
         return
 
     # ========================================================
-    # /perfil nombre
+    # /PERFIL nombre
     # ========================================================
 
     if context.args:
 
-        nombre_buscado = " ".join(
-            context.args
-        ).strip()
+        nombre_buscado = (
+            " ".join(context.args)
+            .strip()
+        )
 
         otro_id = obtener_user_id_por_nombre(
             nombre_buscado
@@ -397,11 +327,6 @@ async def perfil(
             otro_id
         )
 
-        # ====================================================
-        # PRIVACIDAD:
-        # FALSE porque estamos viendo a otra persona.
-        # ====================================================
-
         await _enviar_perfil(
             update=update,
             nombre=nombre,
@@ -412,14 +337,19 @@ async def perfil(
             pais=pais,
             user_id=otro_id,
             context=context,
+
             mostrar_logros=True,
+
+            # IMPORTANTE:
+            # No mostrar el Telegram ID
+            # de otra persona.
             propietario=False,
         )
 
         return
 
     # ========================================================
-    # /perfil
+    # /PERFIL
     # ========================================================
 
     datos = obtener_datos(
@@ -447,11 +377,6 @@ async def perfil(
         viewer_id
     )
 
-    # ========================================================
-    # PRIVACIDAD:
-    # TRUE porque es el propio perfil.
-    # ========================================================
-
     await _enviar_perfil(
         update=update,
         nombre=nombre,
@@ -462,7 +387,11 @@ async def perfil(
         pais=pais,
         user_id=viewer_id,
         context=context,
+
         mostrar_logros=True,
+
+        # Propio perfil:
+        # sí mostrar Telegram ID.
         propietario=True,
     )
 
@@ -550,7 +479,7 @@ async def nivel_cmd(
 
     xp_total = xp_acumulada_actual(
         xp,
-        nivel
+        nivel,
     )
 
     xp_siguiente = xp_para_siguiente_nivel(
@@ -656,5 +585,8 @@ async def userslist(
     )
 
 
-# Compatibilidad con otros archivos.
+# ============================================================
+# COMPATIBILIDAD
+# ============================================================
+
 userlist = userslist

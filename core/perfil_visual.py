@@ -7,20 +7,12 @@ from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from core.paises import PAISES
 
 
-# ============================================================
-# CONFIGURACIÓN HD
-# ============================================================
-
 ANCHO = 1800
 ALTO = 1120
 
 FPS = 10
 FRAMES_ANIMADOS = 12
 
-
-# ============================================================
-# COLORES
-# ============================================================
 
 COLORES_NOMBRE = {
     "color_dorado": (255, 211, 77),
@@ -30,6 +22,7 @@ COLORES_NOMBRE = {
     "color_violeta": (190, 110, 255),
     "color_esmeralda": (55, 220, 135),
 }
+
 
 COLORES_MARCO = {
     "marco_dorado": (255, 211, 77),
@@ -51,6 +44,7 @@ COLORES_MARCO = {
     "marco_ametista": (170, 90, 220),
 }
 
+
 COLORES_FONDO = {
     "fondo_noche": ((12, 15, 35), (35, 20, 65)),
     "fondo_nebulosa": ((15, 20, 60), (80, 30, 100)),
@@ -60,10 +54,6 @@ COLORES_FONDO = {
     "fondo_abismo": ((3, 5, 12), (20, 25, 40)),
 }
 
-
-# ============================================================
-# ALIAS DE PRODUCTOS
-# ============================================================
 
 ALIASES_PRODUCTOS = {
     "nombre dorado": "color_dorado",
@@ -78,17 +68,21 @@ ALIASES_PRODUCTOS = {
     "marco real": "marco_real",
     "marco glacial": "marco_glacial",
     "marco cósmico": "marco_cosmico",
+    "marco cosmico": "marco_cosmico",
     "rosa cristal": "marco_rosa_cristal",
     "corazones": "marco_corazones",
     "floral": "marco_floral",
     "mariposas": "marco_mariposas",
     "neón": "marco_neon",
+    "neon": "marco_neon",
     "cyber": "marco_cyber",
     "samurái": "marco_samurai",
+    "samurai": "marco_samurai",
     "dark": "marco_dark",
     "arcano": "marco_arcano",
     "esmeralda": "marco_esmeralda",
     "rubí": "marco_rubi",
+    "rubi": "marco_rubi",
     "amatista": "marco_ametista",
 
     "fuego": "efecto_fuego",
@@ -96,30 +90,34 @@ ALIASES_PRODUCTOS = {
     "escarcha": "efecto_escarcha",
     "chispas doradas": "efecto_chispas",
     "partículas cósmicas": "efecto_cosmico",
+    "particulas cosmicas": "efecto_cosmico",
     "aura oscura": "efecto_aura",
+    "corazones animados": "efecto_corazones",
     "pétalos": "efecto_petalo",
+    "petalos": "efecto_petalo",
+    "mariposas animadas": "efecto_mariposas",
     "burbujas": "efecto_burbujas",
     "lluvia de estrellas": "efecto_estrellas",
     "arcoíris": "efecto_arcoiris",
+    "arcoiris": "efecto_arcoiris",
 
     "noche estrellada": "fondo_noche",
     "nebulosa": "fondo_nebulosa",
     "cyber city": "fondo_cyber",
     "sueño rosa": "fondo_rosa",
+    "sueno rosa": "fondo_rosa",
     "floresta mística": "fondo_floresta",
+    "floresta mistica": "fondo_floresta",
     "abismo": "fondo_abismo",
 
     "insignia corona": "insignia_corona",
     "insignia rayo": "insignia_rayo",
     "insignia corazón": "insignia_corazon",
+    "insignia corazon": "insignia_corazon",
     "insignia estelar": "insignia_estelar",
     "insignia arcana": "insignia_arcana",
 }
 
-
-# ============================================================
-# PRODUCTOS
-# ============================================================
 
 def _producto_id(producto):
     if producto is None:
@@ -137,7 +135,6 @@ def _producto_id(producto):
         )
 
     if isinstance(producto, dict):
-
         for clave in (
             "producto_id",
             "id",
@@ -170,7 +167,6 @@ def _producto_id(producto):
             ).lower()
 
             if tipo == "color":
-
                 for color in (
                     "esmeralda",
                     "dorado",
@@ -185,28 +181,23 @@ def _producto_id(producto):
             return nombre
 
     valor = str(producto).strip()
-
     return valor or None
 
 
 def normalizar_equipados(equipados):
-
     if not equipados:
         return {}
 
     resultado = {}
 
     if isinstance(equipados, dict):
-
         for clave, valor in equipados.items():
-
             producto_id = _producto_id(valor)
 
             if not producto_id:
                 continue
 
             clave = str(clave).lower().strip()
-
             resultado[clave] = producto_id
 
             producto_lower = producto_id.lower()
@@ -226,12 +217,16 @@ def normalizar_equipados(equipados):
             elif producto_lower.startswith("insignia_"):
                 resultado.setdefault("insignia", producto_id)
 
+            elif (
+                "accesorio" in clave
+                or producto_lower.startswith("accesorio_")
+            ):
+                resultado.setdefault("accesorio", producto_id)
+
         return resultado
 
     if isinstance(equipados, (list, tuple, set)):
-
         for producto in equipados:
-
             producto_id = _producto_id(producto)
 
             if not producto_id:
@@ -254,41 +249,36 @@ def normalizar_equipados(equipados):
             elif producto_lower.startswith("insignia_"):
                 resultado.setdefault("insignia", producto_id)
 
+            elif producto_lower.startswith("accesorio_"):
+                resultado.setdefault("accesorio", producto_id)
+
     return resultado
 
 
-# ============================================================
-# FUENTES
-# ============================================================
-
 def cargar_fuente(tamano, negrita=False):
+    rutas = []
 
     if negrita:
-        rutas = [
+        rutas.extend([
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        ]
+        ])
     else:
-        rutas = [
+        rutas.extend([
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        ]
+        ])
 
     for ruta in rutas:
-
         try:
-            return ImageFont.truetype(
-                ruta,
-                tamano,
-            )
+            return ImageFont.truetype(ruta, tamano)
         except OSError:
-            pass
+            continue
 
     return ImageFont.load_default()
 
 
 def texto_ajustado(draw, texto, fuente, max_ancho):
-
     texto = str(texto)
 
     if draw.textbbox(
@@ -299,7 +289,6 @@ def texto_ajustado(draw, texto, fuente, max_ancho):
         return texto
 
     while texto:
-
         prueba = texto + "..."
 
         if draw.textbbox(
@@ -314,12 +303,7 @@ def texto_ajustado(draw, texto, fuente, max_ancho):
     return "..."
 
 
-# ============================================================
-# FONDO
-# ============================================================
-
 def crear_gradiente(c1, c2):
-
     imagen = Image.new(
         "RGB",
         (ANCHO, ALTO),
@@ -328,11 +312,7 @@ def crear_gradiente(c1, c2):
     pixeles = imagen.load()
 
     for y in range(ALTO):
-
-        t = y / max(
-            1,
-            ALTO - 1,
-        )
+        t = y / max(1, ALTO - 1)
 
         color = tuple(
             int(
@@ -349,25 +329,16 @@ def crear_gradiente(c1, c2):
 
 
 def dibujar_fondo(base, fondo):
-
     fondo = _producto_id(fondo)
 
     if fondo in COLORES_FONDO:
-
         c1, c2 = COLORES_FONDO[fondo]
-
-        base.alpha_composite(
-            crear_gradiente(c1, c2)
-        )
-
     else:
+        c1, c2 = COLORES_FONDO["fondo_noche"]
 
-        base.alpha_composite(
-            crear_gradiente(
-                (12, 15, 35),
-                (35, 20, 65),
-            )
-        )
+    base.alpha_composite(
+        crear_gradiente(c1, c2)
+    )
 
     capa = Image.new(
         "RGBA",
@@ -380,10 +351,9 @@ def dibujar_fondo(base, fondo):
     random.seed(100)
 
     for _ in range(140):
-
         x = random.randint(0, ANCHO)
         y = random.randint(0, ALTO)
-        r = random.choice([2, 2, 3, 4, 5])
+        r = random.choice((2, 3, 4, 5))
 
         draw.ellipse(
             (
@@ -403,12 +373,7 @@ def dibujar_fondo(base, fondo):
     base.alpha_composite(capa)
 
 
-# ============================================================
-# AVATAR
-# ============================================================
-
 def redimensionar_avatar(imagen, tamano=380):
-
     imagen = imagen.convert("RGBA")
 
     lado = min(
@@ -440,7 +405,6 @@ def redimensionar_avatar(imagen, tamano=380):
 
 
 def crear_avatar_iniciales(nombre, tamano=380):
-
     imagen = Image.new(
         "RGBA",
         (tamano, tamano),
@@ -484,7 +448,6 @@ def crear_avatar_iniciales(nombre, tamano=380):
 
 
 def recortar_circulo(imagen):
-
     imagen = imagen.convert("RGBA")
 
     mascara = Image.new(
@@ -527,7 +490,6 @@ def dibujar_avatar(
     y=260,
     tamano=380,
 ):
-
     if avatar is None:
         return
 
@@ -536,9 +498,7 @@ def dibujar_avatar(
         tamano,
     )
 
-    avatar = recortar_circulo(
-        avatar
-    )
+    avatar = recortar_circulo(avatar)
 
     sombra = Image.new(
         "RGBA",
@@ -576,46 +536,60 @@ def dibujar_avatar(
     )
 
 
-# ============================================================
-# BANDERAS
-# ============================================================
-
 def _pais_codigo(pais):
-
     if not pais:
+        return None
+
+    if isinstance(pais, dict):
+        for clave in (
+            "codigo",
+            "code",
+            "pais",
+            "id",
+        ):
+            if pais.get(clave):
+                return _pais_codigo(
+                    pais[clave]
+                )
+
+        if pais.get("nombre"):
+            return _pais_codigo(
+                pais["nombre"]
+            )
+
         return None
 
     valor = str(pais).strip().lower()
 
-    # Si recibimos directamente el código.
     if valor in PAISES:
         return valor
 
-    # Si recibimos el nombre completo.
     for codigo, info in PAISES.items():
+        if isinstance(info, dict):
+            nombre = str(
+                info.get("nombre", "")
+            ).strip().lower()
 
-        nombre = str(
-            info.get("nombre", "")
-        ).strip().lower()
+            if valor == nombre:
+                return codigo
 
-        if valor == nombre:
-            return codigo
-
-    # Casos comunes.
     equivalencias = {
         "el salvador": "salvador",
         "salvador": "salvador",
         "méxico": "mexico",
         "mexico": "mexico",
         "españa": "espana",
-        "españa": "espana",
+        "espana": "espana",
         "república dominicana": "rep_dominicana",
         "republica dominicana": "rep_dominicana",
         "puerto rico": "puerto_rico",
         "costa rica": "costa_rica",
     }
 
-    return equivalencias.get(valor, valor)
+    return equivalencias.get(
+        valor,
+        valor,
+    )
 
 
 def _dibujar_estrella(
@@ -625,17 +599,15 @@ def _dibujar_estrella(
     radio,
     color,
 ):
-
     puntos = []
 
     for i in range(10):
-
         angulo = (
             -math.pi / 2
             + i * math.pi / 5
         )
 
-        r = (
+        radio_actual = (
             radio
             if i % 2 == 0
             else radio * 0.42
@@ -643,8 +615,12 @@ def _dibujar_estrella(
 
         puntos.append(
             (
-                cx + math.cos(angulo) * r,
-                cy + math.sin(angulo) * r,
+                cx
+                + math.cos(angulo)
+                * radio_actual,
+                cy
+                + math.sin(angulo)
+                * radio_actual,
             )
         )
 
@@ -659,57 +635,27 @@ def dibujar_bandera(
     pais,
     x,
     y,
-    ancho=100,
-    alto=64,
+    ancho=58,
+    alto=38,
 ):
-
     codigo = _pais_codigo(pais)
 
     if not codigo:
         return
 
-    # --------------------------------------------------------
-    # COLORES
-    # --------------------------------------------------------
-
     blanco = (255, 255, 255, 255)
-    negro = (20, 20, 20, 255)
     rojo = (210, 30, 45, 255)
     azul = (20, 75, 170, 255)
     azul_claro = (70, 170, 235, 255)
     amarillo = (255, 210, 50, 255)
     verde = (30, 150, 80, 255)
-    naranja = (240, 120, 35, 255)
 
-    # --------------------------------------------------------
-    # BASE
-    # --------------------------------------------------------
-
-    draw.rectangle(
-        (
-            x,
-            y,
-            x + ancho,
-            y + alto,
-        ),
-        fill=blanco,
-    )
-
-    # --------------------------------------------------------
-    # CUBA
-    # --------------------------------------------------------
-
+    # Cuba
     if codigo == "cuba":
-
         franja = alto / 5
 
         for i in range(5):
-
-            color = (
-                azul
-                if i % 2 == 0
-                else blanco
-            )
+            color = azul if i % 2 == 0 else blanco
 
             draw.rectangle(
                 (
@@ -741,12 +687,8 @@ def dibujar_bandera(
             blanco,
         )
 
-    # --------------------------------------------------------
-    # EL SALVADOR
-    # --------------------------------------------------------
-
+    # El Salvador
     elif codigo == "salvador":
-
         franja = alto / 3
 
         draw.rectangle(
@@ -779,34 +721,18 @@ def dibujar_bandera(
             fill=azul_claro,
         )
 
-        # Escudo simplificado.
-        cx = x + ancho / 2
-        cy = y + alto / 2
-
         draw.ellipse(
             (
-                cx - 9,
-                cy - 9,
-                cx + 9,
-                cy + 9,
+                x + ancho / 2 - 5,
+                y + alto / 2 - 5,
+                x + ancho / 2 + 5,
+                y + alto / 2 + 5,
             ),
             fill=amarillo,
         )
 
-        _dibujar_estrella(
-            draw,
-            cx,
-            cy,
-            7,
-            verde,
-        )
-
-    # --------------------------------------------------------
-    # MÉXICO
-    # --------------------------------------------------------
-
+    # México
     elif codigo == "mexico":
-
         tercio = ancho / 3
 
         draw.rectangle(
@@ -841,20 +767,16 @@ def dibujar_bandera(
 
         draw.ellipse(
             (
-                x + ancho / 2 - 7,
-                y + alto / 2 - 7,
-                x + ancho / 2 + 7,
-                y + alto / 2 + 7,
+                x + ancho / 2 - 4,
+                y + alto / 2 - 4,
+                x + ancho / 2 + 4,
+                y + alto / 2 + 4,
             ),
             fill=verde,
         )
 
-    # --------------------------------------------------------
-    # ECUADOR
-    # --------------------------------------------------------
-
+    # Ecuador
     elif codigo == "ecuador":
-
         draw.rectangle(
             (
                 x,
@@ -885,12 +807,8 @@ def dibujar_bandera(
             fill=rojo,
         )
 
-    # --------------------------------------------------------
-    # ARGENTINA
-    # --------------------------------------------------------
-
+    # Argentina
     elif codigo == "argentina":
-
         tercio = alto / 3
 
         draw.rectangle(
@@ -927,22 +845,20 @@ def dibujar_bandera(
             draw,
             x + ancho / 2,
             y + alto / 2,
-            8,
+            4,
             amarillo,
         )
 
-    # --------------------------------------------------------
-    # COLOMBIA
-    # --------------------------------------------------------
-
+    # Colombia
     elif codigo == "colombia":
+        mitad = alto / 2
 
         draw.rectangle(
             (
                 x,
                 y,
                 x + ancho,
-                y + alto / 2,
+                y + mitad,
             ),
             fill=amarillo,
         )
@@ -950,7 +866,7 @@ def dibujar_bandera(
         draw.rectangle(
             (
                 x,
-                y + alto / 2,
+                y + mitad,
                 x + ancho,
                 y + alto * 0.75,
             ),
@@ -967,12 +883,8 @@ def dibujar_bandera(
             fill=rojo,
         )
 
-    # --------------------------------------------------------
-    # PERÚ
-    # --------------------------------------------------------
-
+    # Perú
     elif codigo == "peru":
-
         tercio = ancho / 3
 
         draw.rectangle(
@@ -1005,11 +917,17 @@ def dibujar_bandera(
             fill=rojo,
         )
 
-    # --------------------------------------------------------
-    # CHILE
-    # --------------------------------------------------------
-
+    # Chile
     elif codigo == "chile":
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho,
+                y + alto / 2,
+            ),
+            fill=blanco,
+        )
 
         draw.rectangle(
             (
@@ -1025,17 +943,7 @@ def dibujar_bandera(
             (
                 x,
                 y,
-                x + ancho,
-                y + alto / 2,
-            ),
-            fill=blanco,
-        )
-
-        draw.rectangle(
-            (
-                x,
-                y,
-                x + ancho * 0.36,
+                x + ancho * 0.33,
                 y + alto / 2,
             ),
             fill=azul,
@@ -1043,18 +951,14 @@ def dibujar_bandera(
 
         _dibujar_estrella(
             draw,
-            x + ancho * 0.18,
+            x + ancho * 0.165,
             y + alto * 0.25,
-            7,
+            4,
             blanco,
         )
 
-    # --------------------------------------------------------
-    # VENEZUELA
-    # --------------------------------------------------------
-
+    # Venezuela
     elif codigo == "venezuela":
-
         tercio = alto / 3
 
         draw.rectangle(
@@ -1088,329 +992,301 @@ def dibujar_bandera(
         )
 
         for i in range(7):
-
-            angulo = (
-                math.pi * 0.15
-                + i * math.pi * 0.7 / 6
+            angulo = math.radians(
+                210 + i * 20
             )
 
             cx = (
-                x + ancho / 2
-                + math.cos(angulo) * 24
+                x + ancho * 0.50
+                + math.cos(angulo) * 15
             )
 
             cy = (
-                y + alto / 2
-                + math.sin(angulo) * 10
+                y + alto * 0.50
+                + math.sin(angulo) * 7
             )
 
             _dibujar_estrella(
                 draw,
                 cx,
                 cy,
-                3,
+                2.5,
                 blanco,
             )
 
-    # --------------------------------------------------------
-    # CENTROAMÉRICA / OTROS
-    # --------------------------------------------------------
+    # Guatemala
+    elif codigo == "guatemala":
+        tercio = ancho / 3
 
-    elif codigo in (
-        "guatemala",
-        "nicaragua",
-        "honduras",
-        "costa_rica",
-        "panama",
-    ):
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + tercio,
+                y + alto,
+            ),
+            fill=azul_claro,
+        )
 
-        # Bandera simplificada basada en sus
-        # franjas principales.
-        if codigo == "guatemala":
+        draw.rectangle(
+            (
+                x + tercio,
+                y,
+                x + tercio * 2,
+                y + alto,
+            ),
+            fill=blanco,
+        )
 
-            tercio = ancho / 3
+        draw.rectangle(
+            (
+                x + tercio * 2,
+                y,
+                x + ancho,
+                y + alto,
+            ),
+            fill=azul_claro,
+        )
 
+    # Nicaragua
+    elif codigo == "nicaragua":
+        tercio = alto / 3
+
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho,
+                y + tercio,
+            ),
+            fill=azul_claro,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio,
+                x + ancho,
+                y + tercio * 2,
+            ),
+            fill=blanco,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio * 2,
+                x + ancho,
+                y + alto,
+            ),
+            fill=azul_claro,
+        )
+
+    # Honduras
+    elif codigo == "honduras":
+        tercio = alto / 3
+
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho,
+                y + tercio,
+            ),
+            fill=azul_claro,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio,
+                x + ancho,
+                y + tercio * 2,
+            ),
+            fill=blanco,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio * 2,
+                x + ancho,
+                y + alto,
+            ),
+            fill=azul_claro,
+        )
+
+    # Costa Rica
+    elif codigo == "costa_rica":
+        partes = [
+            azul,
+            blanco,
+            rojo,
+            blanco,
+            azul,
+        ]
+
+        altura = alto / 5
+
+        for i, color in enumerate(partes):
             draw.rectangle(
                 (
                     x,
-                    y,
-                    x + tercio,
-                    y + alto,
-                ),
-                fill=azul_claro,
-            )
-
-            draw.rectangle(
-                (
-                    x + tercio,
-                    y,
-                    x + tercio * 2,
-                    y + alto,
-                ),
-                fill=blanco,
-            )
-
-            draw.rectangle(
-                (
-                    x + tercio * 2,
-                    y,
+                    y + i * altura,
                     x + ancho,
-                    y + alto,
+                    y + (i + 1) * altura,
                 ),
-                fill=azul_claro,
+                fill=color,
             )
 
-        elif codigo == "honduras":
+    # Panamá
+    elif codigo == "panama":
+        mitad_w = ancho / 2
+        mitad_h = alto / 2
 
-            franja = alto / 3
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + mitad_w,
+                y + mitad_h,
+            ),
+            fill=blanco,
+        )
 
-            for i, color in enumerate(
-                (
-                    azul_claro,
-                    blanco,
-                    azul_claro,
-                )
-            ):
+        draw.rectangle(
+            (
+                x + mitad_w,
+                y,
+                x + ancho,
+                y + mitad_h,
+            ),
+            fill=rojo,
+        )
 
-                draw.rectangle(
-                    (
-                        x,
-                        y + i * franja,
-                        x + ancho,
-                        y + (i + 1) * franja,
-                    ),
-                    fill=color,
-                )
+        draw.rectangle(
+            (
+                x,
+                y + mitad_h,
+                x + mitad_w,
+                y + alto,
+            ),
+            fill=azul,
+        )
 
-            _dibujar_estrella(
-                draw,
-                x + ancho / 2,
-                y + alto / 2,
-                4,
-                azul,
-            )
+        draw.rectangle(
+            (
+                x + mitad_w,
+                y + mitad_h,
+                x + ancho,
+                y + alto,
+            ),
+            fill=blanco,
+        )
 
-        elif codigo == "nicaragua":
+    # Bolivia
+    elif codigo == "bolivia":
+        tercio = alto / 3
 
-            franja = alto / 3
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho,
+                y + tercio,
+            ),
+            fill=rojo,
+        )
 
+        draw.rectangle(
+            (
+                x,
+                y + tercio,
+                x + ancho,
+                y + tercio * 2,
+            ),
+            fill=amarillo,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio * 2,
+                x + ancho,
+                y + alto,
+            ),
+            fill=verde,
+        )
+
+    # Paraguay
+    elif codigo == "paraguay":
+        tercio = alto / 3
+
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho,
+                y + tercio,
+            ),
+            fill=rojo,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio,
+                x + ancho,
+                y + tercio * 2,
+            ),
+            fill=blanco,
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y + tercio * 2,
+                x + ancho,
+                y + alto,
+            ),
+            fill=azul,
+        )
+
+    # Uruguay
+    elif codigo == "uruguay":
+        franja = alto / 9
+
+        for i in range(9):
             draw.rectangle(
                 (
                     x,
-                    y,
+                    y + i * franja,
                     x + ancho,
-                    y + franja,
+                    y + (i + 1) * franja,
                 ),
-                fill=azul,
+                fill=blanco if i % 2 == 0 else azul,
             )
 
-            draw.rectangle(
-                (
-                    x,
-                    y + franja,
-                    x + ancho,
-                    y + franja * 2,
-                ),
-                fill=blanco,
-            )
+        draw.rectangle(
+            (
+                x,
+                y,
+                x + ancho * 0.38,
+                y + alto * 0.55,
+            ),
+            fill=blanco,
+        )
 
-            draw.rectangle(
-                (
-                    x,
-                    y + franja * 2,
-                    x + ancho,
-                    y + alto,
-                ),
-                fill=azul,
-            )
+        _dibujar_estrella(
+            draw,
+            x + ancho * 0.19,
+            y + alto * 0.27,
+            5,
+            amarillo,
+        )
 
-        elif codigo == "costa_rica":
-
-            alturas = [
-                1,
-                1,
-                2,
-                1,
-                1,
-            ]
-
-            colores = [
-                azul,
-                blanco,
-                rojo,
-                blanco,
-                azul,
-            ]
-
-            total = sum(alturas)
-            actual = y
-
-            for alto_rel, color in zip(
-                alturas,
-                colores,
-            ):
-
-                h = (
-                    alto
-                    * alto_rel
-                    / total
-                )
-
-                draw.rectangle(
-                    (
-                        x,
-                        actual,
-                        x + ancho,
-                        actual + h,
-                    ),
-                    fill=color,
-                )
-
-                actual += h
-
-        elif codigo == "panama":
-
-            draw.rectangle(
-                (
-                    x,
-                    y,
-                    x + ancho / 2,
-                    y + alto / 2,
-                ),
-                fill=blanco,
-            )
-
-            draw.rectangle(
-                (
-                    x + ancho / 2,
-                    y,
-                    x + ancho,
-                    y + alto / 2,
-                ),
-                fill=rojo,
-            )
-
-            draw.rectangle(
-                (
-                    x,
-                    y + alto / 2,
-                    x + ancho / 2,
-                    y + alto,
-                ),
-                fill=azul,
-            )
-
-            draw.rectangle(
-                (
-                    x + ancho / 2,
-                    y + alto / 2,
-                    x + ancho,
-                    y + alto,
-                ),
-                fill=blanco,
-            )
-
-            _dibujar_estrella(
-                draw,
-                x + ancho * 0.25,
-                y + alto * 0.25,
-                7,
-                azul,
-            )
-
-            _dibujar_estrella(
-                draw,
-                x + ancho * 0.75,
-                y + alto * 0.75,
-                7,
-                rojo,
-            )
-
-    # --------------------------------------------------------
-    # RESTO: FRANJAS GENERALES
-    # --------------------------------------------------------
-
-    elif codigo in (
-        "bolivia",
-        "paraguay",
-        "uruguay",
-    ):
-
-        if codigo == "bolivia":
-
-            franja = alto / 3
-
-            colores = [
-                rojo,
-                amarillo,
-                verde,
-            ]
-
-            for i, color in enumerate(
-                colores
-            ):
-
-                draw.rectangle(
-                    (
-                        x,
-                        y + i * franja,
-                        x + ancho,
-                        y + (i + 1) * franja,
-                    ),
-                    fill=color,
-                )
-
-        elif codigo == "paraguay":
-
-            franja = alto / 3
-
-            colores = [
-                rojo,
-                blanco,
-                rojo,
-            ]
-
-            for i, color in enumerate(
-                colores
-            ):
-
-                draw.rectangle(
-                    (
-                        x,
-                        y + i * franja,
-                        x + ancho,
-                        y + (i + 1) * franja,
-                    ),
-                    fill=color,
-                )
-
-        elif codigo == "uruguay":
-
-            franja = alto / 9
-
-            for i in range(9):
-
-                color = (
-                    blanco
-                    if i % 2 == 0
-                    else azul_claro
-                )
-
-                draw.rectangle(
-                    (
-                        x,
-                        y + i * franja,
-                        x + ancho,
-                        y + (i + 1) * franja,
-                    ),
-                    fill=color,
-                )
-
-    elif codigo == "argentina":
-        pass
-
+    # España
     elif codigo == "espana":
-
         draw.rectangle(
             (
                 x,
@@ -1441,8 +1317,8 @@ def dibujar_bandera(
             fill=rojo,
         )
 
+    # República Dominicana
     elif codigo == "rep_dominicana":
-
         draw.rectangle(
             (
                 x,
@@ -1457,45 +1333,23 @@ def dibujar_bandera(
             (
                 x,
                 y,
-                x + ancho / 2 - 4,
-                y + alto / 2 - 4,
+                x + ancho * 0.5,
+                y + alto * 0.45,
             ),
             fill=azul,
         )
 
         draw.rectangle(
             (
-                x + ancho / 2 + 4,
-                y,
-                x + ancho,
-                y + alto / 2 - 4,
-            ),
-            fill=rojo,
-        )
-
-        draw.rectangle(
-            (
-                x,
-                y + alto / 2 + 4,
-                x + ancho / 2 - 4,
-                y + alto,
-            ),
-            fill=rojo,
-        )
-
-        draw.rectangle(
-            (
-                x + ancho / 2 + 4,
-                y + alto / 2 + 4,
+                x + ancho * 0.5,
+                y + alto * 0.55,
                 x + ancho,
                 y + alto,
             ),
-            fill=azul,
+            fill=rojo,
         )
 
     else:
-
-        # País desconocido: bandera genérica.
         draw.rectangle(
             (
                 x,
@@ -1503,20 +1357,22 @@ def dibujar_bandera(
                 x + ancho,
                 y + alto,
             ),
-            fill=azul_claro,
+            fill=(70, 70, 90, 255),
         )
 
-        draw.ellipse(
+        draw.text(
             (
-                x + ancho / 2 - 10,
-                y + alto / 2 - 10,
-                x + ancho / 2 + 10,
-                y + alto / 2 + 10,
+                x + 5,
+                y + 3,
+            ),
+            codigo[:3].upper(),
+            font=cargar_fuente(
+                max(12, int(alto * 0.34)),
+                True,
             ),
             fill=blanco,
         )
 
-    # Borde común.
     draw.rounded_rectangle(
         (
             x,
@@ -1526,162 +1382,128 @@ def dibujar_bandera(
         ),
         radius=5,
         outline=(255, 255, 255, 170),
-        width=3,
+        width=2,
     )
 
-
-# ============================================================
-# ICONO DE RANGO
-# MISMO TAMAÑO VISUAL QUE LAS LETRAS
-# ============================================================
 
 def dibujar_icono_rango(
     draw,
     x,
     y,
-    tamano=80,
+    tamano=52,
 ):
-
-    cx = x + tamano / 2
-    cy = y + tamano / 2
-
-    radio = tamano * 0.38
+    centro_x = x + tamano / 2
+    centro_y = y + tamano / 2
 
     draw.ellipse(
         (
-            cx - radio - 4,
-            cy - radio - 4,
-            cx + radio + 4,
-            cy + radio + 4,
+            x,
+            y,
+            x + tamano,
+            y + tamano,
         ),
-        fill=(0, 0, 0, 130),
-    )
-
-    draw.ellipse(
-        (
-            cx - radio,
-            cy - radio,
-            cx + radio,
-            cy + radio,
-        ),
-        fill=(255, 196, 45, 255),
-        outline=(255, 235, 130, 255),
-        width=4,
+        fill=(35, 35, 50, 245),
+        outline=(255, 215, 80, 255),
+        width=3,
     )
 
     _dibujar_estrella(
         draw,
-        cx,
-        cy,
-        radio * 0.65,
-        (255, 255, 255, 255),
+        centro_x,
+        centro_y,
+        tamano * 0.34,
+        (255, 215, 80, 255),
     )
 
-
-# ============================================================
-# TOKEN
-# ============================================================
 
 def dibujar_icono_token(
     draw,
     x,
     y,
-    tamano=48,
+    tamano=50,
 ):
-
-    cx = x + tamano / 2
-    cy = y + tamano / 2
-
-    radio = tamano / 2
-
     draw.ellipse(
         (
-            cx - radio,
-            cy - radio,
-            cx + radio,
-            cy + radio,
+            x,
+            y,
+            x + tamano,
+            y + tamano,
         ),
-        fill=(255, 204, 50, 255),
-        outline=(255, 240, 150, 255),
+        fill=(255, 205, 55, 255),
+        outline=(255, 245, 150, 255),
         width=3,
     )
 
     fuente = cargar_fuente(
-        int(tamano * 0.42),
+        int(tamano * 0.62),
         True,
     )
 
     bbox = draw.textbbox(
         (0, 0),
-        "$",
+        "T",
         font=fuente,
     )
 
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
 
     draw.text(
         (
-            cx - tw / 2,
-            cy - th / 2 - bbox[1],
+            x + (tamano - w) / 2,
+            y + (tamano - h) / 2 - bbox[1],
         ),
-        "$",
+        "T",
         font=fuente,
-        fill=(90, 55, 0, 255),
+        fill=(120, 75, 10, 255),
     )
 
 
-# ============================================================
-# MARCO
-# ============================================================
-
-def dibujar_marco(base, marco):
-
+def dibujar_marco(
+    base,
+    marco,
+):
     marco = _producto_id(marco)
 
     color = COLORES_MARCO.get(
         marco,
-        (100, 100, 120),
+        (150, 90, 255),
     )
 
-    capa = Image.new(
-        "RGBA",
-        base.size,
-        (0, 0, 0, 0),
-    )
+    draw = ImageDraw.Draw(base)
 
-    draw = ImageDraw.Draw(capa)
+    margen = 18
 
     draw.rounded_rectangle(
         (
-            24,
-            24,
-            ANCHO - 24,
-            ALTO - 24,
+            margen,
+            margen,
+            ANCHO - margen,
+            ALTO - margen,
         ),
         radius=60,
-        outline=(*color, 255),
-        width=16,
+        outline=(
+            *color,
+            255,
+        ),
+        width=18,
     )
 
     draw.rounded_rectangle(
         (
-            50,
-            50,
-            ANCHO - 50,
-            ALTO - 50,
+            margen + 25,
+            margen + 25,
+            ANCHO - margen - 25,
+            ALTO - margen - 25,
         ),
-        radius=48,
-        outline=(*color, 90),
-        width=6,
+        radius=45,
+        outline=(
+            *color,
+            90,
+        ),
+        width=5,
     )
 
-    base.alpha_composite(capa)
-
-
-# ============================================================
-# CORAZONES
-# ============================================================
 
 def _dibujar_corazon(
     draw,
@@ -1690,84 +1512,36 @@ def _dibujar_corazon(
     tamano,
     color,
 ):
+    puntos = []
 
-    r = tamano * 0.25
+    for i in range(101):
+        t = (
+            2 * math.pi * i / 100
+        )
 
-    draw.ellipse(
-        (
-            cx - r * 2,
-            cy - r,
-            cx,
-            cy + r,
-        ),
-        fill=color,
-    )
+        x = (
+            16 * math.sin(t) ** 3
+        )
 
-    draw.ellipse(
-        (
-            cx,
-            cy - r,
-            cx + r * 2,
-            cy + r,
-        ),
-        fill=color,
-    )
+        y = -(
+            13 * math.cos(t)
+            - 5 * math.cos(2 * t)
+            - 2 * math.cos(3 * t)
+            - math.cos(4 * t)
+        )
+
+        puntos.append(
+            (
+                cx + x * tamano / 32,
+                cy + y * tamano / 32,
+            )
+        )
 
     draw.polygon(
-        [
-            (
-                cx - r * 2,
-                cy,
-            ),
-            (
-                cx,
-                cy + tamano * 0.65,
-            ),
-            (
-                cx + r * 2,
-                cy,
-            ),
-        ],
+        puntos,
         fill=color,
     )
 
-
-def _efecto_corazones(
-    draw,
-    frame,
-):
-
-    random.seed(6000 + frame)
-
-    for _ in range(18):
-
-        x = random.randint(
-            80,
-            ANCHO - 80,
-        )
-
-        y = random.randint(
-            80,
-            ALTO - 80,
-        )
-
-        _dibujar_corazon(
-            draw,
-            x,
-            y,
-            80,
-            (
-                255,
-                80,
-                130,
-                random.randint(120, 210),
-            ),
-        )
-
-
-# ============================================================
-# MARIPOSAS
-# ============================================================
 
 def _dibujar_mariposa(
     draw,
@@ -1775,18 +1549,17 @@ def _dibujar_mariposa(
     y,
     tamano,
 ):
-
     color1 = (
         190,
-        120,
+        100,
         255,
         190,
     )
 
     color2 = (
-        100,
-        200,
         255,
+        120,
+        210,
         190,
     )
 
@@ -1822,42 +1595,12 @@ def _dibujar_mariposa(
     )
 
 
-def _efecto_mariposas(
-    draw,
-    frame,
-):
-
-    for i in range(6):
-
-        x = 180 + i * 280
-
-        y = (
-            130
-            + (
-                frame * 14
-                + i * 120
-            ) % 780
-        )
-
-        _dibujar_mariposa(
-            draw,
-            x,
-            y,
-            80,
-        )
-
-
-# ============================================================
-# CORONA
-# ============================================================
-
 def _dibujar_corona(
     draw,
     x=None,
     y=None,
     tamano=80,
 ):
-
     if x is None:
         x = ANCHO - 390
 
@@ -1900,16 +1643,10 @@ def _dibujar_corona(
     )
 
 
-# ============================================================
-# EFECTOS RESTANTES
-# ============================================================
-
 def _efecto_fuego(draw, frame):
-
     random.seed(1000 + frame)
 
     for _ in range(90):
-
         x = random.randint(50, ANCHO - 50)
         y = ALTO - random.randint(40, 240)
         r = random.randint(4, 14)
@@ -1931,27 +1668,17 @@ def _efecto_fuego(draw, frame):
 
 
 def _efecto_electricidad(draw, frame):
-
     random.seed(2000 + frame)
 
     for _ in range(20):
-
-        x = random.randint(
-            80,
-            ANCHO - 80,
-        )
-
+        x = random.randint(80, ANCHO - 80)
         puntos = [(x, 40)]
         y = 40
 
         while y < ALTO - 40:
-
             y += random.randint(50, 110)
             x += random.randint(-50, 50)
-
-            puntos.append(
-                (x, y)
-            )
+            puntos.append((x, y))
 
         draw.line(
             puntos,
@@ -1961,21 +1688,11 @@ def _efecto_electricidad(draw, frame):
 
 
 def _efecto_escarcha(draw, frame):
-
     random.seed(3000 + frame)
 
     for _ in range(110):
-
-        x = random.randint(
-            40,
-            ANCHO - 40,
-        )
-
-        y = random.randint(
-            40,
-            ALTO - 40,
-        )
-
+        x = random.randint(40, ANCHO - 40)
+        y = random.randint(40, ALTO - 40)
         r = random.randint(4, 10)
 
         draw.ellipse(
@@ -1990,21 +1707,11 @@ def _efecto_escarcha(draw, frame):
 
 
 def _efecto_chispas(draw, frame):
-
     random.seed(4000 + frame)
 
     for _ in range(120):
-
-        x = random.randint(
-            40,
-            ANCHO - 40,
-        )
-
-        y = random.randint(
-            40,
-            ALTO - 40,
-        )
-
+        x = random.randint(40, ANCHO - 40)
+        y = random.randint(40, ALTO - 40)
         r = random.randint(2, 7)
 
         draw.ellipse(
@@ -2019,11 +1726,9 @@ def _efecto_chispas(draw, frame):
 
 
 def _efecto_cosmico(draw, frame):
-
     random.seed(5000)
 
     for i in range(140):
-
         angulo = (
             i * 37
             + frame * 8
@@ -2062,7 +1767,6 @@ def _efecto_cosmico(draw, frame):
 
 
 def _efecto_aura(draw, frame):
-
     alpha = (
         70
         + int(
@@ -2087,21 +1791,39 @@ def _efecto_aura(draw, frame):
     )
 
 
-def _efecto_petalo(draw, frame):
+def _efecto_corazones(draw, frame):
+    for i in range(18):
+        x = (
+            100
+            + (
+                i * 113
+                + frame * 7
+            ) % (ANCHO - 200)
+        )
 
+        y = (
+            120
+            + (
+                i * 91
+                + frame * 10
+            ) % (ALTO - 200)
+        )
+
+        _dibujar_corazon(
+            draw,
+            x,
+            y,
+            22,
+            (255, 80, 130, 150),
+        )
+
+
+def _efecto_petalo(draw, frame):
     random.seed(7000 + frame)
 
     for _ in range(60):
-
-        x = random.randint(
-            40,
-            ANCHO - 40,
-        )
-
-        y = random.randint(
-            40,
-            ALTO - 40,
-        )
+        x = random.randint(40, ANCHO - 40)
+        y = random.randint(40, ALTO - 40)
 
         draw.ellipse(
             (
@@ -2114,17 +1836,34 @@ def _efecto_petalo(draw, frame):
         )
 
 
+def _efecto_mariposas(draw, frame):
+    for i in range(6):
+        x = 180 + i * 280
+
+        y = (
+            130
+            + (
+                frame * 14
+                + i * 120
+            ) % 780
+        )
+
+        _dibujar_mariposa(
+            draw,
+            x,
+            y,
+            80,
+        )
+
+
 def _efecto_burbujas(draw, frame):
-
     for i in range(40):
-
         x = (
             60
             + (
                 i * 146
                 + frame * 8
-            )
-            % (ANCHO - 120)
+            ) % (ANCHO - 120)
         )
 
         y = (
@@ -2132,8 +1871,7 @@ def _efecto_burbujas(draw, frame):
             - (
                 i * 94
                 + frame * 16
-            )
-            % (ALTO - 80)
+            ) % (ALTO - 80)
         )
 
         r = 8 + i % 14
@@ -2151,24 +1889,12 @@ def _efecto_burbujas(draw, frame):
 
 
 def _efecto_estrellas(draw, frame):
-
     random.seed(9000)
 
     for i in range(70):
-
-        x = random.randint(
-            40,
-            ANCHO - 40,
-        )
-
-        y = random.randint(
-            40,
-            ALTO - 40,
-        )
-
-        r = 4 + (
-            (i + frame) % 6
-        )
+        x = random.randint(40, ANCHO - 40)
+        y = random.randint(40, ALTO - 40)
+        r = 4 + ((i + frame) % 6)
 
         draw.line(
             (
@@ -2194,7 +1920,6 @@ def _efecto_estrellas(draw, frame):
 
 
 def _efecto_arcoiris(draw, frame):
-
     colores = [
         (255, 70, 70, 150),
         (255, 170, 50, 150),
@@ -2205,7 +1930,6 @@ def _efecto_arcoiris(draw, frame):
     ]
 
     for i, color in enumerate(colores):
-
         margen = i * 14
 
         draw.rounded_rectangle(
@@ -2226,7 +1950,6 @@ def dibujar_efecto(
     efecto,
     frame=0,
 ):
-
     capa = Image.new(
         "RGBA",
         base.size,
@@ -2235,9 +1958,7 @@ def dibujar_efecto(
 
     draw = ImageDraw.Draw(capa)
 
-    efecto = _producto_id(
-        efecto
-    ) or ""
+    efecto = _producto_id(efecto) or ""
 
     funciones = {
         "efecto_fuego": _efecto_fuego,
@@ -2262,19 +1983,12 @@ def dibujar_efecto(
     base.alpha_composite(capa)
 
 
-# ============================================================
-# ACCESORIOS
-# ============================================================
-
 def _dibujar_accesorio(
     base,
     accesorio,
     frame,
 ):
-
-    accesorio = _producto_id(
-        accesorio
-    )
+    accesorio = _producto_id(accesorio)
 
     if not accesorio:
         return
@@ -2290,19 +2004,13 @@ def _dibujar_accesorio(
     nombre = accesorio.lower()
 
     if "corona" in nombre:
-
         _dibujar_corona(
             draw,
             frame=frame,
         )
 
-    elif (
-        "neon" in nombre
-        or "neón" in nombre
-    ):
-
+    elif "neon" in nombre or "neón" in nombre:
         for i in range(5):
-
             y = (
                 200
                 + i * 160
@@ -2327,18 +2035,11 @@ def _dibujar_accesorio(
     base.alpha_composite(capa)
 
 
-# ============================================================
-# INSIGNIAS
-# ============================================================
-
 def dibujar_insignia(
     base,
     insignia,
 ):
-
-    insignia = _producto_id(
-        insignia
-    )
+    insignia = _producto_id(insignia)
 
     if not insignia:
         return
@@ -2351,41 +2052,16 @@ def dibujar_insignia(
 
     draw = ImageDraw.Draw(capa)
 
-    x = 1510
-    y = 790
-    tamano = 80
+    tamano = 56
+    x = 1640
+    y = 770
 
     colores = {
-        "insignia_corona": (
-            255,
-            210,
-            70,
-            255,
-        ),
-        "insignia_rayo": (
-            255,
-            220,
-            70,
-            255,
-        ),
-        "insignia_corazon": (
-            255,
-            80,
-            130,
-            255,
-        ),
-        "insignia_estelar": (
-            130,
-            210,
-            255,
-            255,
-        ),
-        "insignia_arcana": (
-            190,
-            110,
-            255,
-            255,
-        ),
+        "insignia_corona": (255, 210, 70, 255),
+        "insignia_rayo": (255, 220, 70, 255),
+        "insignia_corazon": (255, 80, 130, 255),
+        "insignia_estelar": (130, 210, 255, 255),
+        "insignia_arcana": (190, 110, 255, 255),
     }
 
     color = colores.get(
@@ -2402,32 +2078,30 @@ def dibujar_insignia(
         ),
         fill=(20, 20, 35, 220),
         outline=color,
-        width=6,
+        width=4,
     )
 
     cx = x + tamano / 2
     cy = y + tamano / 2
 
     if insignia == "insignia_corazon":
-
         _dibujar_corazon(
             draw,
             cx,
             cy,
-            40,
+            25,
             color,
         )
 
     elif insignia == "insignia_rayo":
-
         draw.polygon(
             [
-                (cx + 10, cy - 28),
-                (cx - 16, cy + 4),
-                (cx, cy + 4),
-                (cx - 10, cy + 28),
-                (cx + 22, cy - 8),
-                (cx + 5, cy - 8),
+                (cx + 7, cy - 20),
+                (cx - 10, cy + 2),
+                (cx, cy + 2),
+                (cx - 7, cy + 20),
+                (cx + 14, cy - 5),
+                (cx + 3, cy - 5),
             ],
             fill=color,
         )
@@ -2436,30 +2110,24 @@ def dibujar_insignia(
         "insignia_estelar",
         "insignia_arcana",
     ):
-
         _dibujar_estrella(
             draw,
             cx,
             cy,
-            25,
+            19,
             color,
         )
 
     elif insignia == "insignia_corona":
-
         _dibujar_corona(
             draw,
-            cx - 25,
-            cy - 25,
-            50,
+            cx - 18,
+            cy - 18,
+            36,
         )
 
     base.alpha_composite(capa)
 
-
-# ============================================================
-# GENERADOR PRINCIPAL
-# ============================================================
 
 def generar_perfil(
     nombre,
@@ -2472,7 +2140,6 @@ def generar_perfil(
     avatar=None,
     equipados=None,
 ):
-
     equipados = normalizar_equipados(
         equipados
     )
@@ -2525,10 +2192,7 @@ def generar_perfil(
 
     frames = []
 
-    for frame in range(
-        cantidad_frames
-    ):
-
+    for frame in range(cantidad_frames):
         imagen = Image.new(
             "RGBA",
             (ANCHO, ALTO),
@@ -2560,11 +2224,8 @@ def generar_perfil(
             380,
         )
 
-        draw = ImageDraw.Draw(
-            imagen
-        )
+        draw = ImageDraw.Draw(imagen)
 
-        # Letras grandes.
         fuente_nombre = cargar_fuente(
             84,
             True,
@@ -2576,7 +2237,7 @@ def generar_perfil(
         )
 
         fuente_pequena = cargar_fuente(
-            40,
+            50,
             False,
         )
 
@@ -2584,10 +2245,6 @@ def generar_perfil(
             30,
             True,
         )
-
-        # ----------------------------------------------------
-        # NOMBRE
-        # ----------------------------------------------------
 
         nombre_mostrado = texto_ajustado(
             draw,
@@ -2597,20 +2254,14 @@ def generar_perfil(
         )
 
         draw.text(
-            (
-                605,
-                195,
-            ),
+            (605, 195),
             nombre_mostrado,
             font=fuente_nombre,
             fill=(0, 0, 0, 170),
         )
 
         draw.text(
-            (
-                600,
-                190,
-            ),
+            (600, 190),
             nombre_mostrado,
             font=fuente_nombre,
             fill=(
@@ -2619,10 +2270,6 @@ def generar_perfil(
             ),
         )
 
-        # ----------------------------------------------------
-        # NIVEL
-        # ----------------------------------------------------
-
         draw.text(
             (600, 320),
             f"Nivel {nivel}",
@@ -2630,27 +2277,19 @@ def generar_perfil(
             fill=(255, 255, 255, 240),
         )
 
-        # ----------------------------------------------------
-        # RANGO
-        # ----------------------------------------------------
-
         dibujar_icono_rango(
             draw,
             600,
             395,
-            80,
+            50,
         )
 
         draw.text(
-            (700, 412),
+            (665, 397),
             f"Rango: {rango}",
             font=fuente_info,
             fill=(235, 235, 245, 240),
         )
-
-        # ----------------------------------------------------
-        # XP
-        # ----------------------------------------------------
 
         draw.text(
             (600, 500),
@@ -2659,66 +2298,53 @@ def generar_perfil(
             fill=(225, 225, 235, 240),
         )
 
-        # ----------------------------------------------------
-        # TOKENS
-        # ----------------------------------------------------
-
         dibujar_icono_token(
             draw,
             600,
-            590,
-            55,
+            592,
+            50,
         )
 
         draw.text(
-            (675, 592),
+            (665, 590),
             f"Tokens: {tokens}",
             font=fuente_info,
             fill=(255, 215, 80, 245),
         )
 
-        # ----------------------------------------------------
-        # PAÍS
-        # ----------------------------------------------------
-
         if pais:
+            codigo_pais = _pais_codigo(pais)
 
-            codigo_pais = _pais_codigo(
-                pais
+            info_pais = PAISES.get(
+                codigo_pais,
+                {},
             )
 
-            nombre_pais = (
-                PAISES.get(
-                    codigo_pais,
-                    {},
-                ).get(
+            if isinstance(info_pais, dict):
+                nombre_pais = info_pais.get(
                     "nombre",
                     str(pais),
                 )
-            )
+            else:
+                nombre_pais = str(pais)
 
             dibujar_bandera(
                 draw,
                 codigo_pais,
                 600,
                 700,
-                100,
-                64,
+                58,
+                38,
             )
 
             draw.text(
-                (730, 704),
+                (675, 694),
                 nombre_pais,
                 font=fuente_pequena,
                 fill=(210, 225, 235, 235),
             )
 
-        # ----------------------------------------------------
-        # BARRA XP
-        # ----------------------------------------------------
-
         try:
-
             xp_actual = max(
                 0,
                 float(xp_total),
@@ -2739,12 +2365,10 @@ def generar_perfil(
             ValueError,
             ZeroDivisionError,
         ):
-
             progreso = 0.0
 
         barra_x = 600
         barra_y = 820
-
         barra_w = 1050
         barra_h = 44
 
@@ -2762,7 +2386,6 @@ def generar_perfil(
         )
 
         if progreso > 0:
-
             ancho_progreso = max(
                 44,
                 int(
@@ -2781,37 +2404,20 @@ def generar_perfil(
                 fill=(70, 200, 255, 235),
             )
 
-        # ----------------------------------------------------
-        # INSIGNIA
-        # ----------------------------------------------------
-
         if insignia:
-
             dibujar_insignia(
                 imagen,
                 insignia,
             )
 
-        # ----------------------------------------------------
-        # MARCO
-        # ----------------------------------------------------
-
         if marco:
-
             dibujar_marco(
                 imagen,
                 marco,
             )
 
-        # ----------------------------------------------------
-        # FOOTER
-        # ----------------------------------------------------
-
         draw.text(
-            (
-                110,
-                ALTO - 90,
-            ),
+            (110, ALTO - 90),
             "Reidi Studios",
             font=fuente_footer,
             fill=(255, 255, 255, 150),
@@ -2821,22 +2427,15 @@ def generar_perfil(
             imagen.convert("RGB")
         )
 
-    # ========================================================
-    # EXPORTAR
-    # ========================================================
-
     salida = io.BytesIO()
 
     if animado:
-
         frames[0].save(
             salida,
             format="GIF",
             save_all=True,
             append_images=frames[1:],
-            duration=int(
-                1000 / FPS
-            ),
+            duration=int(1000 / FPS),
             loop=0,
             optimize=False,
         )
@@ -2844,7 +2443,6 @@ def generar_perfil(
         mime = "image/gif"
 
     else:
-
         frames[0].save(
             salida,
             format="PNG",
@@ -2858,5 +2456,3 @@ def generar_perfil(
         mime,
         animado,
     )
-
-Ahora sí: si "pais="salvador"", la tarjeta dibuja la bandera de El Salvador; si "pais="cuba"", dibuja la de Cuba. No depende de que Telegram pueda renderizar emojis.

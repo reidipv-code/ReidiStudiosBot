@@ -35,10 +35,6 @@ from core.perfil_visual import (
 )
 
 
-# ============================================================
-# AVATAR DE TELEGRAM
-# ============================================================
-
 async def obtener_avatar_telegram(
     context,
     user_id,
@@ -52,7 +48,6 @@ async def obtener_avatar_telegram(
 
         if fotos.total_count > 0:
             foto = fotos.photos[0][-1]
-
             archivo = await context.bot.get_file(
                 foto.file_id
             )
@@ -61,11 +56,9 @@ async def obtener_avatar_telegram(
 
             from PIL import Image
 
-            imagen = Image.open(
+            return Image.open(
                 io.BytesIO(datos)
             ).convert("RGBA")
-
-            return imagen
 
     except Exception:
         pass
@@ -78,10 +71,6 @@ async def obtener_avatar_telegram(
         (35, 40, 55, 255),
     )
 
-
-# ============================================================
-# PERFIL
-# ============================================================
 
 async def perfil(
     update: Update,
@@ -96,11 +85,12 @@ async def perfil(
         )
         return
 
-    # ========================================================
-    # PERFIL DE OTRO USUARIO
-    # ========================================================
+    # =========================================================
+    # VER PERFIL DE OTRO USUARIO
+    # =========================================================
 
     if context.args:
+
         nombre_buscado = " ".join(
             context.args
         ).strip()
@@ -117,9 +107,7 @@ async def perfil(
             )
             return
 
-        datos = obtener_datos(
-            otro_id
-        )
+        datos = obtener_datos(otro_id)
 
         if datos is None:
             await update.message.reply_text(
@@ -136,41 +124,21 @@ async def perfil(
             sesion,
         ) = datos
 
-        # ----------------------------------------------------
-        # País
-        # ----------------------------------------------------
-
-        pais = obtener_pais(
-            otro_id
-        )
+        pais = obtener_pais(otro_id)
 
         if pais:
-            bandera = obtener_bandera(
-                pais
-            )
-
-            nombre_pais_str = nombre_pais(
-                pais
-            )
+            bandera = obtener_bandera(pais)
+            nombre_pais_str = nombre_pais(pais)
 
             pais_visual = (
                 f"{bandera} {nombre_pais_str}"
             )
-
         else:
             pais_visual = "No configurado"
-
-        # ----------------------------------------------------
-        # Cosméticos
-        # ----------------------------------------------------
 
         equipados = equipados_usuario(
             otro_id
         )
-
-        # ----------------------------------------------------
-        # Avatar
-        # ----------------------------------------------------
 
         avatar = await obtener_avatar_telegram(
             context,
@@ -178,26 +146,18 @@ async def perfil(
             nombre,
         )
 
-        # ----------------------------------------------------
-        # XP
-        # ----------------------------------------------------
-
         xp_total = xp_acumulada_actual(
             xp,
             nivel,
         )
 
         xp_siguiente = xp_para_siguiente_nivel(
-            nivel,
+            nivel
         )
 
         rango = rango_por_nivel(
             nivel
         )
-
-        # ----------------------------------------------------
-        # Generar imagen
-        # ----------------------------------------------------
 
         contenido, mime, animado = generar_perfil(
             nombre=nombre,
@@ -223,10 +183,6 @@ async def perfil(
             else "perfil.png"
         )
 
-        # ----------------------------------------------------
-        # Información inferior
-        # ----------------------------------------------------
-
         estado = (
             "🟢 Online"
             if esta_online(otro_id)
@@ -237,12 +193,170 @@ async def perfil(
             otro_id
         )
 
-        total_logros = len(
-            LOGROS
-        )
+        total_logros = len(LOGROS)
 
         caption = (
             f"👤 *PERFIL DE {nombre.upper()}*\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 ID: *#{id_interno}*\n"
-            f"🏆 Logros: *{len(logros_usr)}/{total_log
+            f"🏆 Logros: *{len(logros_usr)}/{total_logros}*\n"
+            f"{estado}"
+        )
+
+        if animado:
+
+            await update.message.reply_animation(
+                animation=InputFile(
+                    archivo,
+                    filename=archivo_nombre,
+                ),
+                caption=caption,
+                parse_mode="Markdown",
+            )
+
+        else:
+
+            await update.message.reply_photo(
+                photo=InputFile(
+                    archivo,
+                    filename=archivo_nombre,
+                ),
+                caption=caption,
+                parse_mode="Markdown",
+            )
+
+        return
+
+    # =========================================================
+    # PERFIL PROPIO
+    # =========================================================
+
+    datos = obtener_datos(
+        user_id
+    )
+
+    if datos is None:
+        await update.message.reply_text(
+            "❌ No se pudo obtener tu perfil."
+        )
+        return
+
+    (
+        nombre,
+        id_interno,
+        tokens,
+        xp,
+        nivel,
+        sesion,
+    ) = datos
+
+    xp_total = xp_acumulada_actual(
+        xp,
+        nivel,
+    )
+
+    xp_siguiente = xp_para_siguiente_nivel(
+        nivel
+    )
+
+    pais = obtener_pais(
+        user_id
+    )
+
+    if pais:
+
+        bandera = obtener_bandera(
+            pais
+        )
+
+        nombre_pais_str = nombre_pais(
+            pais
+        )
+
+        pais_visual = (
+            f"{bandera} {nombre_pais_str}"
+        )
+
+    else:
+        pais_visual = "No configurado"
+
+    equipados = equipados_usuario(
+        user_id
+    )
+
+    avatar = await obtener_avatar_telegram(
+        context,
+        user_id,
+        nombre,
+    )
+
+    rango = rango_por_nivel(
+        nivel
+    )
+
+    contenido, mime, animado = generar_perfil(
+        nombre=nombre,
+        nivel=nivel,
+        rango=rango,
+        xp_total=xp_total,
+        xp_siguiente=xp_siguiente,
+        tokens=tokens,
+        pais=pais_visual,
+        avatar=avatar,
+        equipados=equipados,
+    )
+
+    archivo = io.BytesIO(
+        contenido
+    )
+
+    archivo.seek(0)
+
+    archivo_nombre = (
+        "perfil.gif"
+        if animado
+        else "perfil.png"
+    )
+
+    estado = (
+        "🟢 Online"
+        if esta_online(user_id)
+        else "⚫ Offline"
+    )
+
+    logros_usr = logros_de_usuario(
+        user_id
+    )
+
+    total_logros = len(LOGROS)
+
+    emojis_logros = ""
+
+    if logros_usr:
+
+        emojis_logros = "\n🏆 Logros: "
+
+        for clave in logros_usr:
+
+            if clave in LOGROS:
+
+                emojis_logros += (
+                    LOGROS[clave]["emoji"]
+                    + " "
+                )
+
+        emojis_logros += (
+            f"({len(logros_usr)}/{total_logros})"
+        )
+
+    caption = (
+        f"👤 *{nombre.upper()}*\n"
+        f"━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 ID: *#{id_interno}*\n"
+        f"{estado}"
+        f"{emojis_logros}"
+    )
+
+    if animado:
+
+        await update.message

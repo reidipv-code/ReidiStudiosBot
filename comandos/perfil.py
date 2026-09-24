@@ -26,7 +26,7 @@ from core.perfil_visual import generar_perfil
 
 
 # ============================================================
-# AVATAR
+# AVATAR DE TELEGRAM
 # ============================================================
 
 async def obtener_avatar_telegram(
@@ -63,7 +63,7 @@ async def obtener_avatar_telegram(
     return Image.new(
         "RGBA",
         (400, 400),
-        (35, 40, 55, 255),
+        (35, 40, 55, 255)
     )
 
 
@@ -94,7 +94,7 @@ async def _enviar_perfil(
         nombre,
     )
 
-    xp_total = xp_acumulada_actual(
+    xp_actual = xp_acumulada_actual(
         xp,
         nivel,
     )
@@ -108,7 +108,7 @@ async def _enviar_perfil(
     )
 
     # ========================================================
-    # GENERAR PERFIL
+    # GENERAR IMAGEN
     # ========================================================
 
     try:
@@ -117,9 +117,8 @@ async def _enviar_perfil(
             nivel=nivel,
 
             # IMPORTANTE:
-            # El generador utiliza xp_actual,
-            # NO xp_total.
-            xp_actual=xp_total,
+            # generar_perfil usa xp_actual.
+            xp_actual=xp_actual,
 
             xp_siguiente=xp_siguiente,
             rango=rango,
@@ -127,19 +126,20 @@ async def _enviar_perfil(
             avatar=avatar,
             equipados=equipados,
 
-            # Datos que aparecen dentro de la imagen.
+            # IDs dentro de la imagen.
             id_interno=id_interno,
             telegram_id=user_id,
             bot_id=getattr(
                 context.bot,
                 "id",
-                None,
+                None
             ),
 
-            # Solo muestra el Telegram ID
-            # cuando es el propio perfil.
+            # El Telegram ID solamente se muestra
+            # cuando es el propietario del perfil.
             propietario=propietario,
 
+            # Tokens dentro de la imagen.
             tokens=tokens,
         )
 
@@ -158,16 +158,6 @@ async def _enviar_perfil(
     )
 
     archivo.seek(0)
-
-    # ========================================================
-    # ESTADO
-    # ========================================================
-
-    estado = (
-        "🟢 Online"
-        if esta_online(user_id)
-        else "⚫ Offline"
-    )
 
     # ========================================================
     # LOGROS
@@ -211,10 +201,21 @@ async def _enviar_perfil(
             )
 
     # ========================================================
+    # ESTADO
+    # ========================================================
+
+    estado = (
+        "🟢 Online"
+        if esta_online(user_id)
+        else "⚫ Offline"
+    )
+
+    # ========================================================
     # CAPTION
     #
-    # Los IDs están dentro de la imagen.
-    # No mostramos usernames ni @.
+    # Los IDs ya están dentro de la imagen.
+    # No ponemos @reidistudios.
+    # No ponemos @reidistudiosbot.
     # ========================================================
 
     caption = (
@@ -226,11 +227,10 @@ async def _enviar_perfil(
     caption += emojis_logros
 
     # ========================================================
-    # ENVIAR IMAGEN
+    # ENVIAR
     # ========================================================
 
     if animado:
-
         await update.message.reply_animation(
             animation=InputFile(
                 archivo,
@@ -241,7 +241,6 @@ async def _enviar_perfil(
         )
 
     else:
-
         await update.message.reply_photo(
             photo=InputFile(
                 archivo,
@@ -259,25 +258,17 @@ async def _enviar_perfil(
 async def perfil(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-
+):
     viewer_id = update.effective_user.id
 
-    # ========================================================
-    # COMPROBAR REGISTRO
-    # ========================================================
-
-    if not esta_registrado(
-        viewer_id
-    ):
+    if not esta_registrado(viewer_id):
         await update.message.reply_text(
-            "⚠️ Primero regístrate con "
-            "/reg nombre.pais"
+            "⚠️ Primero regístrate con /reg nombre.pais"
         )
         return
 
     # ========================================================
-    # /PERFIL nombre
+    # VER PERFIL DE OTRO USUARIO
     # ========================================================
 
     if context.args:
@@ -292,14 +283,11 @@ async def perfil(
         )
 
         if otro_id is None:
-
             await update.message.reply_text(
                 f"❌ No existe ningún usuario "
-                f"con el nombre "
-                f"*{nombre_buscado}*.",
+                f"con el nombre *{nombre_buscado}*.",
                 parse_mode="Markdown",
             )
-
             return
 
         datos = obtener_datos(
@@ -307,11 +295,9 @@ async def perfil(
         )
 
         if datos is None:
-
             await update.message.reply_text(
                 "❌ No se pudo obtener el perfil."
             )
-
             return
 
         (
@@ -337,19 +323,16 @@ async def perfil(
             pais=pais,
             user_id=otro_id,
             context=context,
-
             mostrar_logros=True,
 
-            # IMPORTANTE:
-            # No mostrar el Telegram ID
-            # de otra persona.
+            # NO mostrar Telegram ID ajeno.
             propietario=False,
         )
 
         return
 
     # ========================================================
-    # /PERFIL
+    # PROPIO PERFIL
     # ========================================================
 
     datos = obtener_datos(
@@ -357,11 +340,9 @@ async def perfil(
     )
 
     if datos is None:
-
         await update.message.reply_text(
             "❌ No se pudo obtener tu perfil."
         )
-
         return
 
     (
@@ -387,11 +368,9 @@ async def perfil(
         pais=pais,
         user_id=viewer_id,
         context=context,
-
         mostrar_logros=True,
 
-        # Propio perfil:
-        # sí mostrar Telegram ID.
+        # Mostrar Telegram ID solamente aquí.
         propietario=True,
     )
 
@@ -401,20 +380,15 @@ async def perfil(
 # ============================================================
 
 async def tokens_cmd(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-
+    update,
+    context,
+):
     user_id = update.effective_user.id
 
-    if not esta_registrado(
-        user_id
-    ):
-
+    if not esta_registrado(user_id):
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
-
         return
 
     datos = obtener_datos(
@@ -422,11 +396,9 @@ async def tokens_cmd(
     )
 
     if datos is None:
-
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
-
         return
 
     await update.message.reply_text(
@@ -440,20 +412,15 @@ async def tokens_cmd(
 # ============================================================
 
 async def nivel_cmd(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-
+    update,
+    context,
+):
     user_id = update.effective_user.id
 
-    if not esta_registrado(
-        user_id
-    ):
-
+    if not esta_registrado(user_id):
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
-
         return
 
     datos = obtener_datos(
@@ -461,11 +428,9 @@ async def nivel_cmd(
     )
 
     if datos is None:
-
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
-
         return
 
     (
@@ -499,20 +464,15 @@ async def nivel_cmd(
 # ============================================================
 
 async def rango_cmd(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-
+    update,
+    context,
+):
     user_id = update.effective_user.id
 
-    if not esta_registrado(
-        user_id
-    ):
-
+    if not esta_registrado(user_id):
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
-
         return
 
     datos = obtener_datos(
@@ -520,11 +480,9 @@ async def rango_cmd(
     )
 
     if datos is None:
-
         await update.message.reply_text(
             "❌ No se pudo obtener tu información."
         )
-
         return
 
     await update.message.reply_text(
@@ -538,30 +496,23 @@ async def rango_cmd(
 # ============================================================
 
 async def userslist(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-
+    update,
+    context,
+):
     user_id = update.effective_user.id
 
-    if not esta_registrado(
-        user_id
-    ):
-
+    if not esta_registrado(user_id):
         await update.message.reply_text(
             "⚠️ Primero regístrate."
         )
-
         return
 
     lista = obtener_lista_usuarios()
 
     if not lista:
-
         await update.message.reply_text(
             "📋 No hay usuarios registrados."
         )
-
         return
 
     texto = (
@@ -570,7 +521,6 @@ async def userslist(
     )
 
     for id_interno, nombre in lista:
-
         texto += (
             f"#{id_interno} - {nombre}\n"
         )
@@ -585,8 +535,5 @@ async def userslist(
     )
 
 
-# ============================================================
-# COMPATIBILIDAD
-# ============================================================
-
+# Compatibilidad.
 userlist = userslist

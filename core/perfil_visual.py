@@ -1,51 +1,40 @@
 import io
 import math
-import random
-
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-
 from core.paises import PAISES
 
 
 # ============================================================
-# CONFIGURACIÓN VISUAL
+# CONFIGURACIÓN
 # ============================================================
 
 ANCHO = 1920
 ALTO = 1080
 
-FPS = 10
-FRAMES_ANIMADOS = 12
+FONT_NOMBRE = 112
+FONT_PAIS = 52
+FONT_INFO = 44
 
+FONT_NIVEL = 68
+FONT_XP = 62
+FONT_PORCENTAJE = 50
+FONT_RANGO = 54
 
-# Tamaños de texto
-FONT_NOMBRE = 96
-FONT_PAIS = 46
-
-FONT_NIVEL = 64
-FONT_XP = 58
-FONT_PORCENTAJE = 44
-FONT_RANGO = 48
-
-FONT_INFO = 42
-FONT_FOOTER = 32
-
-# Tamaños de elementos
 TAM_AVATAR = 360
 TAM_ICONO = 54
 
-# Posiciones principales
 X_CONTENIDO = 540
 
-Y_NOMBRE = 100
-Y_PAIS = 220
+Y_NOMBRE = 90
+Y_PAIS = 215
 
-# Todo lo relacionado con XP queda agrupado aquí.
-Y_NIVEL = 470
-Y_XP = 550
-Y_BARRA = 650
-Y_PORCENTAJE = 725
-Y_RANGO = 805
+Y_INFO = 310
+
+Y_NIVEL = 520
+Y_XP = 600
+Y_BARRA = 685
+Y_PORCENTAJE = 765
+Y_RANGO = 835
 
 
 # ============================================================
@@ -145,18 +134,16 @@ def normalizar_equipados(equipados):
 
 
 def cargar_fuente(tamano, negrita=False):
-    rutas = []
-
     if negrita:
-        rutas.extend([
+        rutas = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        ])
+        ]
     else:
-        rutas.extend([
+        rutas = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        ])
+        ]
 
     for ruta in rutas:
         try:
@@ -175,9 +162,13 @@ def texto_ajustado(draw, texto, fuente, max_ancho):
 
     while len(texto) > 3:
         texto = texto[:-1]
-
         prueba = texto + "..."
-        if draw.textbbox((0, 0), prueba, font=fuente)[2] <= max_ancho:
+
+        if draw.textbbox(
+            (0, 0),
+            prueba,
+            font=fuente
+        )[2] <= max_ancho:
             return prueba
 
     return "..."
@@ -188,15 +179,30 @@ def texto_ajustado(draw, texto, fuente, max_ancho):
 # ============================================================
 
 def crear_gradiente(color1, color2):
-    imagen = Image.new("RGB", (ANCHO, ALTO))
+    imagen = Image.new(
+        "RGB",
+        (ANCHO, ALTO)
+    )
+
     pixeles = imagen.load()
 
     for y in range(ALTO):
         factor = y / max(1, ALTO - 1)
 
-        r = int(color1[0] * (1 - factor) + color2[0] * factor)
-        g = int(color1[1] * (1 - factor) + color2[1] * factor)
-        b = int(color1[2] * (1 - factor) + color2[2] * factor)
+        r = int(
+            color1[0] * (1 - factor)
+            + color2[0] * factor
+        )
+
+        g = int(
+            color1[1] * (1 - factor)
+            + color2[1] * factor
+        )
+
+        b = int(
+            color1[2] * (1 - factor)
+            + color2[2] * factor
+        )
 
         for x in range(ANCHO):
             pixeles[x, y] = (r, g, b)
@@ -212,14 +218,38 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
 
     fondo = crear_gradiente(*colores)
 
-    # Viñeta
-    overlay = Image.new("RGBA", (ANCHO, ALTO), (0, 0, 0, 0))
+    overlay = Image.new(
+        "RGBA",
+        (ANCHO, ALTO),
+        (0, 0, 0, 0)
+    )
+
     draw = ImageDraw.Draw(overlay)
 
-    for i in range(20):
-        margen = i * 8
+    # Decoración abstracta.
+    draw.ellipse(
+        (
+            1250,
+            -250,
+            2050,
+            550
+        ),
+        fill=(255, 255, 255, 12)
+    )
 
-        alpha = int(5 + i * 2)
+    draw.ellipse(
+        (
+            -300,
+            700,
+            600,
+            1450
+        ),
+        fill=(0, 0, 0, 25)
+    )
+
+    # Viñeta.
+    for i in range(18):
+        margen = i * 10
 
         draw.rectangle(
             (
@@ -228,8 +258,8 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
                 ANCHO - margen,
                 ALTO - margen
             ),
-            outline=(0, 0, 0, alpha),
-            width=8
+            outline=(0, 0, 0, 4 + i * 2),
+            width=5
         )
 
     fondo = Image.alpha_composite(
@@ -237,7 +267,10 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
         overlay
     )
 
-    imagen.paste(fondo.convert("RGB"), (0, 0))
+    imagen.paste(
+        fondo.convert("RGB"),
+        (0, 0)
+    )
 
 
 # ============================================================
@@ -250,7 +283,6 @@ def redimensionar_avatar(avatar, tamano):
 
     avatar = avatar.convert("RGBA")
 
-    # Escalado de máxima calidad disponible.
     return avatar.resize(
         (tamano, tamano),
         Image.Resampling.LANCZOS
@@ -272,15 +304,18 @@ def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
 
     if len(partes) >= 2:
         iniciales = (
-            partes[0][0] +
-            partes[1][0]
+            partes[0][0]
+            + partes[1][0]
         ).upper()
     elif nombre:
         iniciales = nombre[:2].upper()
     else:
         iniciales = "?"
 
-    fuente = cargar_fuente(130, negrita=True)
+    fuente = cargar_fuente(
+        130,
+        negrita=True
+    )
 
     bbox = draw.textbbox(
         (0, 0),
@@ -288,8 +323,15 @@ def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
         font=fuente
     )
 
-    x = (tamano - (bbox[2] - bbox[0])) // 2
-    y = (tamano - (bbox[3] - bbox[1])) // 2 - 10
+    x = (
+        tamano
+        - (bbox[2] - bbox[0])
+    ) // 2
+
+    y = (
+        tamano
+        - (bbox[3] - bbox[1])
+    ) // 2 - 10
 
     draw.text(
         (x, y),
@@ -302,7 +344,10 @@ def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
 
 
 def recortar_circulo(imagen, tamano):
-    imagen = redimensionar_avatar(imagen, tamano)
+    imagen = redimensionar_avatar(
+        imagen,
+        tamano
+    )
 
     if imagen is None:
         return None
@@ -344,7 +389,6 @@ def dibujar_avatar(imagen, avatar, x, y, tamano):
     if avatar is None:
         return
 
-    # Borde exterior.
     overlay = Image.new(
         "RGBA",
         imagen.size,
@@ -355,13 +399,13 @@ def dibujar_avatar(imagen, avatar, x, y, tamano):
 
     draw.ellipse(
         (
-            x - 8,
-            y - 8,
-            x + tamano + 8,
-            y + tamano + 8
+            x - 12,
+            y - 12,
+            x + tamano + 12,
+            y + tamano + 12
         ),
-        outline=(255, 255, 255, 180),
-        width=8
+        outline=(255, 255, 255, 190),
+        width=10
     )
 
     imagen.alpha_composite(
@@ -384,10 +428,14 @@ def _pais_codigo(pais):
 
     valor = str(pais).strip().lower()
 
-    # Si viene como "🇨🇺 Cuba".
     for codigo, datos in PAISES.items():
-        nombre = str(datos.get("nombre", "")).lower()
-        bandera = str(datos.get("bandera", ""))
+        nombre = str(
+            datos.get("nombre", "")
+        ).lower()
+
+        bandera = str(
+            datos.get("bandera", "")
+        )
 
         if valor == codigo.lower():
             return codigo
@@ -404,13 +452,26 @@ def _pais_codigo(pais):
     return None
 
 
-def _dibujar_estrella(draw, cx, cy, radio, color):
+def _dibujar_estrella(
+    draw,
+    cx,
+    cy,
+    radio,
+    color
+):
     puntos = []
 
     for i in range(10):
-        angulo = -math.pi / 2 + i * math.pi / 5
+        angulo = (
+            -math.pi / 2
+            + i * math.pi / 5
+        )
 
-        r = radio if i % 2 == 0 else radio * 0.42
+        r = (
+            radio
+            if i % 2 == 0
+            else radio * 0.42
+        )
 
         puntos.append(
             (
@@ -425,16 +486,29 @@ def _dibujar_estrella(draw, cx, cy, radio, color):
     )
 
 
-def dibujar_bandera(draw, pais, x, y, ancho=90, alto=60):
+def dibujar_bandera(
+    draw,
+    pais,
+    x,
+    y,
+    ancho=82,
+    alto=52
+):
     codigo = _pais_codigo(pais)
 
     if not codigo:
         return
 
-    # Bandera de Cuba dibujada manualmente.
+    # Cuba dibujada manualmente.
     if codigo == "cuba":
+
         draw.rectangle(
-            (x, y, x + ancho, y + alto),
+            (
+                x,
+                y,
+                x + ancho,
+                y + alto
+            ),
             fill=(255, 255, 255)
         )
 
@@ -455,7 +529,10 @@ def dibujar_bandera(draw, pais, x, y, ancho=90, alto=60):
         draw.polygon(
             [
                 (x, y),
-                (x + ancho * 0.48, y + alto / 2),
+                (
+                    x + ancho * 0.48,
+                    y + alto / 2
+                ),
                 (x, y + alto)
             ],
             fill=(210, 35, 45)
@@ -470,21 +547,36 @@ def dibujar_bandera(draw, pais, x, y, ancho=90, alto=60):
         )
 
         draw.rectangle(
-            (x, y, x + ancho, y + alto),
+            (
+                x,
+                y,
+                x + ancho,
+                y + alto
+            ),
             outline=(255, 255, 255),
             width=3
         )
 
         return
 
-    # Otras banderas: usar un bloque limpio con la bandera
-    # disponible en PAISES.
-    datos = PAISES.get(codigo, {})
+    # Para otros países se usa la bandera almacenada.
+    datos = PAISES.get(
+        codigo,
+        {}
+    )
 
-    bandera = datos.get("bandera", "")
+    bandera = datos.get(
+        "bandera",
+        ""
+    )
 
     draw.rounded_rectangle(
-        (x, y, x + ancho, y + alto),
+        (
+            x,
+            y,
+            x + ancho,
+            y + alto
+        ),
         radius=8,
         fill=(45, 50, 65),
         outline=(255, 255, 255),
@@ -492,12 +584,14 @@ def dibujar_bandera(draw, pais, x, y, ancho=90, alto=60):
     )
 
     if bandera:
-        fuente = cargar_fuente(38)
+        fuente = cargar_fuente(
+            34
+        )
 
         draw.text(
             (
-                x + ancho // 2,
-                y + alto // 2
+                x + ancho / 2,
+                y + alto / 2
             ),
             bandera,
             font=fuente,
@@ -506,66 +600,16 @@ def dibujar_bandera(draw, pais, x, y, ancho=90, alto=60):
 
 
 # ============================================================
-# ICONOS
-# ============================================================
-
-def dibujar_icono_rango(draw, x, y, tamano=54):
-    color = (255, 205, 70)
-
-    draw.ellipse(
-        (
-            x,
-            y,
-            x + tamano,
-            y + tamano
-        ),
-        fill=color
-    )
-
-    _dibujar_estrella(
-        draw,
-        x + tamano / 2,
-        y + tamano / 2,
-        tamano * 0.36,
-        (70, 55, 15)
-    )
-
-
-def dibujar_icono_token(draw, x, y, tamano=54):
-    draw.ellipse(
-        (
-            x,
-            y,
-            x + tamano,
-            y + tamano
-        ),
-        fill=(255, 210, 70),
-        outline=(255, 245, 170),
-        width=3
-    )
-
-    fuente = cargar_fuente(
-        max(20, int(tamano * 0.48)),
-        negrita=True
-    )
-
-    draw.text(
-        (
-            x + tamano / 2,
-            y + tamano / 2
-        ),
-        "T",
-        font=fuente,
-        anchor="mm",
-        fill=(80, 60, 10)
-    )
-
-
-# ============================================================
 # MARCO
 # ============================================================
 
-def dibujar_marco(draw, x, y, tamano, tipo="normal"):
+def dibujar_marco(
+    draw,
+    x,
+    y,
+    tamano,
+    tipo="normal"
+):
     color = COLORES_MARCO.get(
         tipo,
         COLORES_MARCO["normal"]
@@ -573,10 +617,10 @@ def dibujar_marco(draw, x, y, tamano, tipo="normal"):
 
     draw.ellipse(
         (
-            x - 12,
-            y - 12,
-            x + tamano + 12,
-            y + tamano + 12
+            x - 14,
+            y - 14,
+            x + tamano + 14,
+            y + tamano + 14
         ),
         outline=color,
         width=14
@@ -587,9 +631,12 @@ def dibujar_marco(draw, x, y, tamano, tipo="normal"):
 # ACCESORIOS
 # ============================================================
 
-def _dibujar_corazon(draw, x, y, tamano=80):
-    r = tamano * 0.25
-
+def _dibujar_corazon(
+    draw,
+    x,
+    y,
+    tamano=80
+):
     draw.ellipse(
         (
             x,
@@ -602,7 +649,7 @@ def _dibujar_corazon(draw, x, y, tamano=80):
 
     draw.ellipse(
         (
-            x + tamano / 2 - r,
+            x + tamano / 2 - tamano * 0.25,
             y,
             x + tamano,
             y + tamano / 2
@@ -612,15 +659,29 @@ def _dibujar_corazon(draw, x, y, tamano=80):
 
     draw.polygon(
         [
-            (x, y + tamano * 0.25),
-            (x + tamano, y + tamano * 0.25),
-            (x + tamano / 2, y + tamano)
+            (
+                x,
+                y + tamano * 0.25
+            ),
+            (
+                x + tamano,
+                y + tamano * 0.25
+            ),
+            (
+                x + tamano / 2,
+                y + tamano
+            )
         ],
         fill=(255, 70, 100)
     )
 
 
-def _dibujar_mariposa(draw, x, y, tamano=80):
+def _dibujar_mariposa(
+    draw,
+    x,
+    y,
+    tamano=80
+):
     color = (180, 100, 255)
 
     draw.ellipse(
@@ -654,7 +715,12 @@ def _dibujar_mariposa(draw, x, y, tamano=80):
     )
 
 
-def _dibujar_corona(draw, x=None, y=None, tamano=80):
+def _dibujar_corona(
+    draw,
+    x=None,
+    y=None,
+    tamano=80
+):
     if x is None:
         x = ANCHO // 2 - tamano // 2
 
@@ -665,10 +731,22 @@ def _dibujar_corona(draw, x=None, y=None, tamano=80):
 
     puntos = [
         (x, y + tamano),
-        (x + tamano * 0.15, y),
-        (x + tamano * 0.45, y + tamano * 0.55),
-        (x + tamano * 0.7, y),
-        (x + tamano, y + tamano),
+        (
+            x + tamano * 0.15,
+            y
+        ),
+        (
+            x + tamano * 0.45,
+            y + tamano * 0.55
+        ),
+        (
+            x + tamano * 0.7,
+            y
+        ),
+        (
+            x + tamano,
+            y + tamano
+        ),
     ]
 
     draw.polygon(
@@ -687,49 +765,17 @@ def _dibujar_corona(draw, x=None, y=None, tamano=80):
     )
 
 
-# ============================================================
-# EFECTOS
-# ============================================================
-
-def dibujar_efecto(draw, efecto, frame=0):
-    nombre = _producto_id(efecto)
-
-    if "corazon" in nombre:
-        x = ANCHO - 240
-        y = 100 + int(
-            math.sin(frame * 0.6) * 12
-        )
-
-        _dibujar_corazon(
-            draw,
-            x,
-            y,
-            70
-        )
-
-    elif "mariposa" in nombre:
-        x = ANCHO - 260
-        y = 150 + int(
-            math.sin(frame * 0.45) * 25
-        )
-
-        _dibujar_mariposa(
-            draw,
-            x,
-            y,
-            80
-        )
-
-
-# ============================================================
-# ACCESORIOS
-# ============================================================
-
-def _dibujar_accesorio(draw, accesorio, frame=0):
-    nombre = _producto_id(accesorio)
+def _dibujar_accesorio(
+    draw,
+    accesorio,
+    frame=0
+):
+    nombre = _producto_id(
+        accesorio
+    )
 
     if "corona" in nombre:
-        # CORREGIDO: no pasar frame a _dibujar_corona().
+
         _dibujar_corona(
             draw,
             x=X_CONTENIDO + 110,
@@ -738,6 +784,7 @@ def _dibujar_accesorio(draw, accesorio, frame=0):
         )
 
     elif "corazon" in nombre:
+
         _dibujar_corazon(
             draw,
             ANCHO - 250,
@@ -748,6 +795,7 @@ def _dibujar_accesorio(draw, accesorio, frame=0):
         )
 
     elif "mariposa" in nombre:
+
         _dibujar_mariposa(
             draw,
             ANCHO - 260,
@@ -758,39 +806,20 @@ def _dibujar_accesorio(draw, accesorio, frame=0):
         )
 
 
-def dibujar_insignia(draw, x, y, texto, color):
-    draw.rounded_rectangle(
-        (
-            x,
-            y,
-            x + 220,
-            y + 58
-        ),
-        radius=20,
-        fill=(20, 25, 40),
-        outline=color,
-        width=3
-    )
-
-    fuente = cargar_fuente(
-        30,
-        negrita=True
-    )
-
-    draw.text(
-        (
-            x + 110,
-            y + 29
-        ),
-        texto,
-        font=fuente,
-        anchor="mm",
-        fill=(245, 245, 250)
+def dibujar_efecto(
+    draw,
+    efecto,
+    frame=0
+):
+    _dibujar_accesorio(
+        draw,
+        efecto,
+        frame
     )
 
 
 # ============================================================
-# BLOQUE DE EXPERIENCIA
+# EXPERIENCIA
 # ============================================================
 
 def dibujar_experiencia(
@@ -800,23 +829,33 @@ def dibujar_experiencia(
     xp_siguiente,
     rango=None
 ):
-    """
-    TODO el bloque de progreso queda junto:
+    try:
+        actual = float(
+            xp_actual or 0
+        )
+    except Exception:
+        actual = 0
 
-        NIVEL
-          ↓
-        XP
-          ↓
-        BARRA
-          ↓
-       78.4%
+    try:
+        siguiente = float(
+            xp_siguiente or 1
+        )
+    except Exception:
+        siguiente = 1
 
-    """
+    if siguiente <= 0:
+        siguiente = 1
 
-    # --------------------------------------------------------
+    porcentaje = (
+        actual / siguiente
+    ) * 100
+
+    porcentaje = max(
+        0,
+        min(100, porcentaje)
+    )
+
     # NIVEL
-    # --------------------------------------------------------
-
     dibujar_icono_rango(
         draw,
         X_CONTENIDO,
@@ -840,36 +879,10 @@ def dibujar_experiencia(
         fill=(255, 255, 255)
     )
 
-    # --------------------------------------------------------
     # XP
-    # --------------------------------------------------------
-
     fuente_xp = cargar_fuente(
         FONT_XP,
         negrita=True
-    )
-
-    try:
-        xp_actual_num = float(xp_actual or 0)
-    except Exception:
-        xp_actual_num = 0
-
-    try:
-        xp_siguiente_num = float(xp_siguiente or 1)
-    except Exception:
-        xp_siguiente_num = 1
-
-    if xp_siguiente_num <= 0:
-        xp_siguiente_num = 1
-
-    porcentaje = (
-        xp_actual_num /
-        xp_siguiente_num
-    ) * 100
-
-    porcentaje = max(
-        0,
-        min(100, porcentaje)
     )
 
     draw.text(
@@ -877,22 +890,21 @@ def dibujar_experiencia(
             X_CONTENIDO,
             Y_XP
         ),
-        f"XP {int(xp_actual_num):,} / {int(xp_siguiente_num):,}",
+        (
+            f"XP {int(actual):,} / "
+            f"{int(siguiente):,}"
+        ),
         font=fuente_xp,
         anchor="lm",
         fill=(235, 240, 250)
     )
 
-    # --------------------------------------------------------
     # BARRA
-    # --------------------------------------------------------
-
     BAR_X = X_CONTENIDO
     BAR_Y = Y_BARRA
     BAR_W = 1120
     BAR_H = 52
 
-    # Fondo.
     draw.rounded_rectangle(
         (
             BAR_X,
@@ -906,7 +918,6 @@ def dibujar_experiencia(
         width=3
     )
 
-    # Progreso.
     progreso_w = int(
         BAR_W * porcentaje / 100
     )
@@ -923,10 +934,7 @@ def dibujar_experiencia(
             fill=(70, 190, 255)
         )
 
-    # --------------------------------------------------------
     # PORCENTAJE
-    # --------------------------------------------------------
-
     fuente_porcentaje = cargar_fuente(
         FONT_PORCENTAJE,
         negrita=True
@@ -943,10 +951,7 @@ def dibujar_experiencia(
         fill=(255, 255, 255)
     )
 
-    # --------------------------------------------------------
     # RANGO
-    # --------------------------------------------------------
-
     if rango:
         fuente_rango = cargar_fuente(
             FONT_RANGO,
@@ -966,6 +971,35 @@ def dibujar_experiencia(
 
 
 # ============================================================
+# ICONOS
+# ============================================================
+
+def dibujar_icono_rango(
+    draw,
+    x,
+    y,
+    tamano=54
+):
+    draw.ellipse(
+        (
+            x,
+            y,
+            x + tamano,
+            y + tamano
+        ),
+        fill=(255, 205, 70)
+    )
+
+    _dibujar_estrella(
+        draw,
+        x + tamano / 2,
+        y + tamano / 2,
+        tamano * 0.36,
+        (70, 55, 15)
+    )
+
+
+# ============================================================
 # GENERADOR PRINCIPAL
 # ============================================================
 
@@ -981,34 +1015,16 @@ def generar_perfil(
     nombre_color="blanco",
     marco="normal",
     estilo_fondo="normal",
+    id_interno=None,
+    telegram_id=None,
+    bot_id=None,
+    propietario=False,
+    tokens=None,
 ):
-    """
-    Genera el perfil como PNG.
-
-    Orden visual:
-
-        NOMBRE
-        PAÍS
-
-        NIVEL
-        XP
-        BARRA
-        PORCENTAJE
-        RANGO
-    """
-
-    equipados = normalizar_equipados(
-        equipados
-    )
-
-    # --------------------------------------------------------
-    # Fondo
-    # --------------------------------------------------------
-
     imagen = Image.new(
-        "RGBA",
+        "RGB",
         (ANCHO, ALTO),
-        (0, 0, 0, 255)
+        (20, 25, 40)
     )
 
     dibujar_fondo(
@@ -1016,45 +1032,67 @@ def generar_perfil(
         estilo_fondo
     )
 
+    imagen = imagen.convert(
+        "RGBA"
+    )
+
     draw = ImageDraw.Draw(
         imagen
     )
 
-    # --------------------------------------------------------
-    # Avatar
-    # --------------------------------------------------------
+    equipados_lista = normalizar_equipados(
+        equipados
+    )
+
+    # ========================================================
+    # AVATAR
+    # ========================================================
 
     if avatar is None:
         avatar = crear_avatar_iniciales(
-            nombre,
-            TAM_AVATAR
+            nombre
         )
 
-    AVATAR_X = 100
-    AVATAR_Y = 300
-
-    dibujar_marco(
-        draw,
-        AVATAR_X,
-        AVATAR_Y,
-        TAM_AVATAR,
-        marco
-    )
+    avatar_x = 90
+    avatar_y = 270
 
     dibujar_avatar(
         imagen,
         avatar,
-        AVATAR_X,
-        AVATAR_Y,
+        avatar_x,
+        avatar_y,
         TAM_AVATAR
     )
 
-    # --------------------------------------------------------
-    # Nombre
-    # --------------------------------------------------------
+    # ========================================================
+    # MARCO
+    # ========================================================
+
+    marco_real = marco or "normal"
+
+    for producto in equipados_lista:
+        pid = _producto_id(producto)
+
+        if pid in ALIASES_PRODUCTOS:
+            posible = ALIASES_PRODUCTOS[pid]
+
+            if pid.startswith("marco_"):
+                marco_real = posible
+
+    dibujar_marco(
+        draw,
+        avatar_x,
+        avatar_y,
+        TAM_AVATAR,
+        marco_real
+    )
+
+    # ========================================================
+    # NOMBRE
+    # ========================================================
 
     color_nombre = COLORES_NOMBRE.get(
-        str(nombre_color).lower(),
+        nombre_color,
         COLORES_NOMBRE["blanco"]
     )
 
@@ -1065,9 +1103,9 @@ def generar_perfil(
 
     nombre_mostrado = texto_ajustado(
         draw,
-        nombre or "Usuario",
+        str(nombre).upper(),
         fuente_nombre,
-        1250
+        1270
     )
 
     draw.text(
@@ -1081,31 +1119,35 @@ def generar_perfil(
         anchor="lm"
     )
 
-    # --------------------------------------------------------
-    # País
-    # --------------------------------------------------------
+    # ========================================================
+    # PAÍS
+    # ========================================================
 
     codigo_pais = _pais_codigo(
         pais
     )
 
-    if codigo_pais and codigo_pais in PAISES:
-        datos_pais = PAISES[
-            codigo_pais
-        ]
+    nombre_pais = ""
+
+    if codigo_pais:
+        datos_pais = PAISES.get(
+            codigo_pais,
+            {}
+        )
 
         nombre_pais = datos_pais.get(
             "nombre",
             codigo_pais
         )
 
+    if nombre_pais:
         dibujar_bandera(
             draw,
-            codigo_pais,
+            pais,
             X_CONTENIDO,
-            Y_PAIS - 28,
-            ancho=88,
-            alto=56
+            Y_PAIS - 26,
+            82,
+            52
         )
 
         fuente_pais = cargar_fuente(
@@ -1115,8 +1157,8 @@ def generar_perfil(
 
         draw.text(
             (
-                X_CONTENIDO + 115,
-                Y_PAIS
+                X_CONTENIDO + 105,
+                Y_PAIS,
             ),
             nombre_pais,
             font=fuente_pais,
@@ -1124,55 +1166,142 @@ def generar_perfil(
             fill=(235, 240, 250)
         )
 
-    # --------------------------------------------------------
-    # EXPERIENCIA
-    #
-    # Todo queda JUNTO y abajo.
-    # --------------------------------------------------------
+    # ========================================================
+    # IDENTIFICACIÓN
+    # ========================================================
 
-    dibujar_experiencia(
-        draw,
-        nivel,
-        xp_actual,
-        xp_siguiente,
-        rango
+    fuente_info = cargar_fuente(
+        FONT_INFO,
+        negrita=True
     )
 
-    # --------------------------------------------------------
-    # Accesorios
-    # --------------------------------------------------------
+    info_y = Y_INFO
 
-    for accesorio in equipados:
+    if id_interno is not None:
+        draw.text(
+            (
+                X_CONTENIDO,
+                info_y
+            ),
+            f"ID INTERNO   #{id_interno}",
+            font=fuente_info,
+            anchor="lm",
+            fill=(225, 230, 240)
+        )
+
+        info_y += 55
+
+    if bot_id is not None:
+        draw.text(
+            (
+                X_CONTENIDO,
+                info_y
+            ),
+            f"ID DEL BOT   {bot_id}",
+            font=fuente_info,
+            anchor="lm",
+            fill=(225, 230, 240)
+        )
+
+        info_y += 55
+
+    if propietario and telegram_id is not None:
+        draw.text(
+            (
+                X_CONTENIDO,
+                info_y
+            ),
+            f"TELEGRAM ID   {telegram_id}",
+            font=fuente_info,
+            anchor="lm",
+            fill=(255, 220, 120)
+        )
+
+        info_y += 55
+
+    if tokens is not None:
+        try:
+            tokens_texto = f"{int(tokens):,}"
+        except Exception:
+            tokens_texto = str(tokens)
+
+        draw.text(
+            (
+                X_CONTENIDO,
+                info_y
+            ),
+            f"TOKENS   {tokens_texto}",
+            font=fuente_info,
+            anchor="lm",
+            fill=(255, 215, 90)
+        )
+
+    # ========================================================
+    # ACCESORIOS
+    # ========================================================
+
+    for accesorio in equipados_lista:
+        pid = _producto_id(accesorio)
+
+        # Los colores de nombre siguen siendo colores.
+        # Los marcos siguen siendo marcos.
+        # Los accesorios visuales se dibujan como accesorios.
+        if (
+            pid.startswith("nombre_")
+            or pid.startswith("marco_")
+        ):
+            continue
+
         _dibujar_accesorio(
             draw,
             accesorio,
-            frame=0
+            0
         )
 
-    # --------------------------------------------------------
-    # Efectos
-    # --------------------------------------------------------
+    # ========================================================
+    # EXPERIENCIA
+    # ========================================================
 
-    for accesorio in equipados:
-        dibujar_efecto(
-            draw,
-            accesorio,
-            frame=0
-        )
+    dibujar_experiencia(
+        draw,
+        nivel=nivel,
+        xp_actual=xp_actual,
+        xp_siguiente=xp_siguiente,
+        rango=rango
+    )
 
-    # --------------------------------------------------------
-    # Exportación PNG
-    # --------------------------------------------------------
+    # ========================================================
+    # DETALLES VISUALES
+    # ========================================================
+
+    # Línea divisoria.
+    draw.line(
+        (
+            X_CONTENIDO,
+            440,
+            ANCHO - 120,
+            440
+        ),
+        fill=(255, 255, 255, 35),
+        width=2
+    )
+
+    # ========================================================
+    # EXPORTACIÓN
+    # ========================================================
 
     salida = io.BytesIO()
 
     imagen.convert("RGB").save(
         salida,
         format="PNG",
-        optimize=False,
-        compress_level=1
+        optimize=True
     )
 
     salida.seek(0)
 
-    return salida
+    return (
+        salida.getvalue(),
+        "image/png",
+        False
+    )

@@ -10,8 +10,8 @@ from core.logros import actualizar_stat, dar_logro, obtener_stats
 from core.misiones import sumar_progreso
 from core.tienda import aplicar_bonus_xp, cantidad_con_bonus_tokens
 
-COOLDOWN_PERDIDA = 420
-COOLDOWN_VICTORIA = 300
+COOLDOWN_PERDIDA = 240
+COOLDOWN_VICTORIA = 195
 
 CONFIG_NIVELES = {
     "noob":    {"nombre": "Noob",    "tiempo": 25, "premio_tokens": 10,  "premio_xp": 10},

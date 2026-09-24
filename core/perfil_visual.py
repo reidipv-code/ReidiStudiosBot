@@ -5,11 +5,22 @@ import random
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 
-ANCHO = 900
-ALTO = 560
+# ============================================================
+# CONFIGURACIÓN HD
+# ============================================================
+
+ANCHO = 1800
+ALTO = 1120
+
+ESCALA = 2
+
 FPS = 10
 FRAMES_ANIMADOS = 12
 
+
+# ============================================================
+# COLORES DEL NOMBRE
+# ============================================================
 
 COLORES_NOMBRE = {
     "color_dorado": (255, 211, 77),
@@ -20,6 +31,10 @@ COLORES_NOMBRE = {
     "color_esmeralda": (55, 220, 135),
 }
 
+
+# ============================================================
+# COLORES DE MARCOS
+# ============================================================
 
 COLORES_MARCO = {
     "marco_dorado": (255, 211, 77),
@@ -42,168 +57,398 @@ COLORES_MARCO = {
 }
 
 
+# ============================================================
+# FONDOS
+# ============================================================
+
 COLORES_FONDO = {
-    "fondo_noche": ((12, 15, 35), (35, 20, 65)),
-    "fondo_nebulosa": ((15, 20, 60), (80, 30, 100)),
-    "fondo_cyber": ((5, 25, 40), (10, 70, 80)),
-    "fondo_rosa": ((55, 15, 45), (120, 35, 80)),
-    "fondo_floresta": ((8, 35, 25), (25, 80, 55)),
-    "fondo_abismo": ((3, 5, 12), (20, 25, 40)),
+    "fondo_noche": (
+        (12, 15, 35),
+        (35, 20, 65),
+    ),
+    "fondo_nebulosa": (
+        (15, 20, 60),
+        (80, 30, 100),
+    ),
+    "fondo_cyber": (
+        (5, 25, 40),
+        (10, 70, 80),
+    ),
+    "fondo_rosa": (
+        (55, 15, 45),
+        (120, 35, 80),
+    ),
+    "fondo_floresta": (
+        (8, 35, 25),
+        (25, 80, 55),
+    ),
+    "fondo_abismo": (
+        (3, 5, 12),
+        (20, 25, 40),
+    ),
 }
 
 
+# ============================================================
+# ALIAS DE PRODUCTOS
+#
+# equipados_usuario() devuelve diccionarios de PRODUCTOS.
+# Ejemplo:
+#
+# {
+#   "nombre": "Nombre Esmeralda",
+#   "tipo": "color",
+#   ...
+# }
+#
+# Por eso necesitamos convertir también los nombres humanos
+# a sus IDs reales.
+# ============================================================
+
+ALIASES_PRODUCTOS = {
+    "nombre dorado": "color_dorado",
+    "nombre rosa": "color_rosa",
+    "nombre cian": "color_cian",
+    "nombre rojo": "color_rojo",
+    "nombre violeta": "color_violeta",
+    "nombre esmeralda": "color_esmeralda",
+
+    "marco dorado": "marco_dorado",
+    "marco diamante": "marco_diamante",
+    "marco real": "marco_real",
+    "marco glacial": "marco_glacial",
+    "marco cósmico": "marco_cosmico",
+    "rosa cristal": "marco_rosa_cristal",
+    "corazones": "marco_corazones",
+    "floral": "marco_floral",
+    "mariposas": "marco_mariposas",
+    "neón": "marco_neon",
+    "cyber": "marco_cyber",
+    "samurái": "marco_samurai",
+    "dark": "marco_dark",
+    "arcano": "marco_arcano",
+    "esmeralda": "marco_esmeralda",
+    "rubí": "marco_rubi",
+    "amatista": "marco_ametista",
+
+    "fuego": "efecto_fuego",
+    "electricidad": "efecto_electricidad",
+    "escarcha": "efecto_escarcha",
+    "chispas doradas": "efecto_chispas",
+    "partículas cósmicas": "efecto_cosmico",
+    "aura oscura": "efecto_aura",
+    "pétalos": "efecto_petalo",
+    "burbujas": "efecto_burbujas",
+    "lluvia de estrellas": "efecto_estrellas",
+    "arcoíris": "efecto_arcoiris",
+
+    "noche estrellada": "fondo_noche",
+    "nebulosa": "fondo_nebulosa",
+    "cyber city": "fondo_cyber",
+    "sueño rosa": "fondo_rosa",
+    "floresta mística": "fondo_floresta",
+    "abismo": "fondo_abismo",
+
+    "insignia corona": "insignia_corona",
+    "insignia rayo": "insignia_rayo",
+    "insignia corazón": "insignia_corazon",
+    "insignia estelar": "insignia_estelar",
+    "insignia arcana": "insignia_arcana",
+}
+
+
+# ============================================================
+# UTILIDADES
+# ============================================================
+
 def _producto_id(producto):
     """
-    Convierte un producto de la tienda a su identificador visual.
+    Convierte cualquier representación de un producto
+    en su ID real de tienda.
 
     Soporta:
-    - "color_esmeralda"
-    - {"id": "color_esmeralda"}
-    - {"codigo": "color_esmeralda"}
-    - {"slug": "color_esmeralda"}
-    - {"nombre": "color_esmeralda"}
+
+        "color_esmeralda"
+
+        {
+            "id": "color_esmeralda"
+        }
+
+        {
+            "producto_id": "color_esmeralda"
+        }
+
+        {
+            "nombre": "Nombre Esmeralda",
+            "tipo": "color"
+        }
     """
 
     if producto is None:
         return None
 
     if isinstance(producto, str):
-        return producto.strip()
+        valor = producto.strip()
+
+        if not valor:
+            return None
+
+        valor_lower = valor.lower()
+
+        if valor_lower in ALIASES_PRODUCTOS:
+            return ALIASES_PRODUCTOS[valor_lower]
+
+        return valor
 
     if isinstance(producto, dict):
+
+        # Primero buscamos IDs reales.
         for clave in (
+            "producto_id",
             "id",
             "codigo",
             "slug",
             "clave",
-            "producto_id",
-            "nombre",
         ):
             valor = producto.get(clave)
 
             if valor is not None:
-                return str(valor).strip()
+                valor = str(valor).strip()
 
-    return str(producto).strip()
+                if valor:
+                    valor_lower = valor.lower()
+
+                    if valor_lower in ALIASES_PRODUCTOS:
+                        return ALIASES_PRODUCTOS[
+                            valor_lower
+                        ]
+
+                    return valor
+
+        # Si no hay ID, utilizamos el nombre.
+        nombre = producto.get("nombre")
+
+        if nombre is not None:
+            nombre = str(nombre).strip()
+            nombre_lower = nombre.lower()
+
+            if nombre_lower in ALIASES_PRODUCTOS:
+                return ALIASES_PRODUCTOS[
+                    nombre_lower
+                ]
+
+            # Intentamos reconstruir productos de color.
+            if (
+                str(producto.get("tipo", "")).lower()
+                == "color"
+            ):
+                if "esmeralda" in nombre_lower:
+                    return "color_esmeralda"
+
+                if "dorado" in nombre_lower:
+                    return "color_dorado"
+
+                if "rosa" in nombre_lower:
+                    return "color_rosa"
+
+                if "cian" in nombre_lower:
+                    return "color_cian"
+
+                if "rojo" in nombre_lower:
+                    return "color_rojo"
+
+                if "violeta" in nombre_lower:
+                    return "color_violeta"
+
+            return nombre
+
+    valor = str(producto).strip()
+
+    if not valor:
+        return None
+
+    return valor
 
 
 def normalizar_equipados(equipados):
     """
-    Normaliza cualquier formato procedente de la tienda para que
-    generar_perfil nunca intente utilizar un dict como clave.
+    Convierte equipamiento proveniente de la tienda
+    en un formato sencillo:
+
+        {
+            "color": "color_esmeralda",
+            "marco": "marco_dorado",
+            "fondo": "fondo_noche",
+            "efecto": "efecto_fuego",
+            "insignia": "insignia_corona"
+        }
     """
 
     if not equipados:
         return {}
 
+
     resultado = {}
 
+
+    # --------------------------------------------------------
+    # Diccionario:
+    #
+    # {
+    #     "color": {...},
+    #     "marco": {...}
+    # }
+    # --------------------------------------------------------
+
     if isinstance(equipados, dict):
+
         for clave, valor in equipados.items():
-            clave_str = str(clave).lower().strip()
-            valor_str = _producto_id(valor)
 
-            if valor_str:
-                resultado[clave_str] = valor_str
+            clave_str = str(
+                clave
+            ).lower().strip()
 
-                # También permitimos detectar directamente por prefijo.
-                if valor_str.startswith("color_"):
-                    resultado.setdefault(
-                        "color",
-                        valor_str,
-                    )
-
-                elif valor_str.startswith("marco_"):
-                    resultado.setdefault(
-                        "marco",
-                        valor_str,
-                    )
-
-                elif valor_str.startswith("fondo_"):
-                    resultado.setdefault(
-                        "fondo",
-                        valor_str,
-                    )
-
-                elif valor_str.startswith("efecto_"):
-                    resultado.setdefault(
-                        "efecto",
-                        valor_str,
-                    )
-
-                elif (
-                    valor_str.startswith("accesorio_")
-                    or valor_str.startswith("acc_")
-                ):
-                    resultado.setdefault(
-                        "accesorio",
-                        valor_str,
-                    )
-
-        return resultado
-
-    if isinstance(equipados, (list, tuple, set)):
-        for producto in equipados:
-            producto_id = _producto_id(producto)
+            producto_id = _producto_id(
+                valor
+            )
 
             if not producto_id:
                 continue
 
-            if producto_id.startswith("color_"):
+            resultado[
+                clave_str
+            ] = producto_id
+
+            producto_lower = producto_id.lower()
+
+            if producto_lower.startswith(
+                "color_"
+            ):
                 resultado.setdefault(
                     "color",
                     producto_id,
                 )
 
-            elif producto_id.startswith("marco_"):
+            elif producto_lower.startswith(
+                "marco_"
+            ):
                 resultado.setdefault(
                     "marco",
                     producto_id,
                 )
 
-            elif producto_id.startswith("fondo_"):
+            elif producto_lower.startswith(
+                "fondo_"
+            ):
                 resultado.setdefault(
                     "fondo",
                     producto_id,
                 )
 
-            elif producto_id.startswith("efecto_"):
+            elif producto_lower.startswith(
+                "efecto_"
+            ):
                 resultado.setdefault(
                     "efecto",
                     producto_id,
                 )
 
-            elif (
-                producto_id.startswith("accesorio_")
-                or producto_id.startswith("acc_")
+            elif producto_lower.startswith(
+                "insignia_"
             ):
                 resultado.setdefault(
-                    "accesorio",
+                    "insignia",
+                    producto_id,
+                )
+
+        return resultado
+
+
+    # --------------------------------------------------------
+    # Lista / tupla / set
+    # --------------------------------------------------------
+
+    if isinstance(
+        equipados,
+        (list, tuple, set),
+    ):
+
+        for producto in equipados:
+
+            producto_id = _producto_id(
+                producto
+            )
+
+            if not producto_id:
+                continue
+
+            producto_lower = (
+                producto_id.lower()
+            )
+
+            if producto_lower.startswith(
+                "color_"
+            ):
+                resultado.setdefault(
+                    "color",
+                    producto_id,
+                )
+
+            elif producto_lower.startswith(
+                "marco_"
+            ):
+                resultado.setdefault(
+                    "marco",
+                    producto_id,
+                )
+
+            elif producto_lower.startswith(
+                "fondo_"
+            ):
+                resultado.setdefault(
+                    "fondo",
+                    producto_id,
+                )
+
+            elif producto_lower.startswith(
+                "efecto_"
+            ):
+                resultado.setdefault(
+                    "efecto",
+                    producto_id,
+                )
+
+            elif producto_lower.startswith(
+                "insignia_"
+            ):
+                resultado.setdefault(
+                    "insignia",
                     producto_id,
                 )
 
     return resultado
 
 
-def cargar_fuente(tamano, negrita=False):
-    rutas = [
-        (
-            "/usr/share/fonts/truetype/dejavu/"
-            "DejaVuSans-Bold.ttf"
-            if negrita
-            else
-            "/usr/share/fonts/truetype/dejavu/"
-            "DejaVuSans.ttf"
-        ),
-        (
-            "/usr/share/fonts/truetype/liberation2/"
-            "LiberationSans-Bold.ttf"
-            if negrita
-            else
-            "/usr/share/fonts/truetype/liberation2/"
-            "LiberationSans-Regular.ttf"
-        ),
-    ]
+# ============================================================
+# FUENTES
+# ============================================================
+
+def cargar_fuente(
+    tamano,
+    negrita=False,
+):
+    rutas = []
+
+    if negrita:
+        rutas.extend([
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        ])
+    else:
+        rutas.extend([
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        ])
 
     for ruta in rutas:
         try:
@@ -216,6 +461,10 @@ def cargar_fuente(tamano, negrita=False):
 
     return ImageFont.load_default()
 
+
+# ============================================================
+# TEXTO
+# ============================================================
 
 def texto_ajustado(
     draw,
@@ -237,10 +486,15 @@ def texto_ajustado(
         texto + "...",
         font=fuente,
     )[2] > max_ancho:
+
         texto = texto[:-1]
 
     return texto + "..."
 
+
+# ============================================================
+# GRADIENTE
+# ============================================================
 
 def crear_gradiente(
     c1,
@@ -256,6 +510,7 @@ def crear_gradiente(
     pixeles = imagen.load()
 
     for y in range(alto):
+
         t = y / max(
             1,
             alto - 1,
@@ -275,11 +530,17 @@ def crear_gradiente(
     return imagen.convert("RGBA")
 
 
+# ============================================================
+# AVATAR
+# ============================================================
+
 def redimensionar_avatar(
     imagen,
-    tamano=180,
+    tamano=380,
 ):
-    imagen = imagen.convert("RGBA")
+    imagen = imagen.convert(
+        "RGBA"
+    )
 
     lado = min(
         imagen.width,
@@ -304,25 +565,41 @@ def redimensionar_avatar(
     )
 
     return imagen.resize(
-        (tamano, tamano),
+        (
+            tamano,
+            tamano,
+        ),
         Image.Resampling.LANCZOS,
     )
 
 
 def crear_avatar_iniciales(
     nombre,
-    tamano=180,
+    tamano=380,
 ):
     imagen = Image.new(
         "RGBA",
-        (tamano, tamano),
-        (45, 45, 65, 255),
+        (
+            tamano,
+            tamano,
+        ),
+        (
+            45,
+            45,
+            65,
+            255,
+        ),
     )
 
-    draw = ImageDraw.Draw(imagen)
+    draw = ImageDraw.Draw(
+        imagen
+    )
 
     fuente = cargar_fuente(
-        max(32, tamano // 3),
+        max(
+            64,
+            tamano // 3,
+        ),
         True,
     )
 
@@ -343,28 +620,43 @@ def crear_avatar_iniciales(
         font=fuente,
     )
 
+    ancho = (
+        bbox[2] - bbox[0]
+    )
+
+    alto = (
+        bbox[3] - bbox[1]
+    )
+
     x = (
-        tamano
-        - (bbox[2] - bbox[0])
+        tamano - ancho
     ) // 2
 
     y = (
-        tamano
-        - (bbox[3] - bbox[1])
+        tamano - alto
     ) // 2 - bbox[1]
 
     draw.text(
         (x, y),
         iniciales,
         font=fuente,
-        fill=(255, 255, 255, 255),
+        fill=(
+            255,
+            255,
+            255,
+            255,
+        ),
     )
 
     return imagen
 
 
-def recortar_circulo(imagen):
-    imagen = imagen.convert("RGBA")
+def recortar_circulo(
+    imagen,
+):
+    imagen = imagen.convert(
+        "RGBA"
+    )
 
     mascara = Image.new(
         "L",
@@ -372,7 +664,9 @@ def recortar_circulo(imagen):
         0,
     )
 
-    draw = ImageDraw.Draw(mascara)
+    draw = ImageDraw.Draw(
+        mascara
+    )
 
     draw.ellipse(
         (
@@ -387,7 +681,12 @@ def recortar_circulo(imagen):
     resultado = Image.new(
         "RGBA",
         imagen.size,
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
     resultado.paste(
@@ -399,12 +698,25 @@ def recortar_circulo(imagen):
     return resultado
 
 
+# ============================================================
+# FONDO
+# ============================================================
+
 def dibujar_fondo(
     base,
     fondo,
 ):
+    fondo = _producto_id(
+        fondo
+    )
+
     if fondo in COLORES_FONDO:
-        c1, c2 = COLORES_FONDO[fondo]
+
+        c1, c2 = (
+            COLORES_FONDO[
+                fondo
+            ]
+        )
 
         base.alpha_composite(
             crear_gradiente(
@@ -412,26 +724,43 @@ def dibujar_fondo(
                 c2,
             )
         )
+
     else:
-        base.paste(
+
+        base.alpha_composite(
             crear_gradiente(
-                (12, 15, 35),
-                (35, 20, 65),
-            ),
-            (0, 0),
+                (
+                    12,
+                    15,
+                    35,
+                ),
+                (
+                    35,
+                    20,
+                    65,
+                ),
+            )
         )
 
     capa = Image.new(
         "RGBA",
         base.size,
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
-    draw = ImageDraw.Draw(capa)
+    draw = ImageDraw.Draw(
+        capa
+    )
 
     random.seed(100)
 
-    for _ in range(70):
+    for _ in range(140):
+
         x = random.randint(
             0,
             ANCHO,
@@ -443,7 +772,13 @@ def dibujar_fondo(
         )
 
         r = random.choice(
-            [1, 1, 2, 2, 3]
+            [
+                2,
+                2,
+                3,
+                4,
+                5,
+            ]
         )
 
         draw.ellipse(
@@ -464,15 +799,21 @@ def dibujar_fondo(
             ),
         )
 
-    base.alpha_composite(capa)
+    base.alpha_composite(
+        capa
+    )
 
+
+# ============================================================
+# AVATAR EN LA TARJETA
+# ============================================================
 
 def dibujar_avatar(
     base,
     avatar,
-    x=70,
-    y=120,
-    tamano=180,
+    x=140,
+    y=260,
+    tamano=380,
 ):
     if avatar is None:
         return
@@ -489,10 +830,15 @@ def dibujar_avatar(
     sombra = Image.new(
         "RGBA",
         (
-            tamano + 20,
-            tamano + 20,
+            tamano + 40,
+            tamano + 40,
         ),
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
     sombra_draw = ImageDraw.Draw(
@@ -501,98 +847,507 @@ def dibujar_avatar(
 
     sombra_draw.ellipse(
         (
-            5,
-            5,
-            tamano + 15,
-            tamano + 15,
+            10,
+            10,
+            tamano + 30,
+            tamano + 30,
         ),
-        fill=(0, 0, 0, 130),
+        fill=(
+            0,
+            0,
+            0,
+            150,
+        ),
     )
 
     sombra = sombra.filter(
-        ImageFilter.GaussianBlur(8)
+        ImageFilter.GaussianBlur(
+            16
+        )
     )
 
     base.alpha_composite(
         sombra,
-        (x - 10, y - 10),
+        (
+            x - 20,
+            y - 20,
+        ),
     )
 
     base.alpha_composite(
         avatar,
-        (x, y),
+        (
+            x,
+            y,
+        ),
     )
 
+
+# ============================================================
+# BANDERA DE CUBA
+#
+# Se dibuja manualmente para no depender de emoji.
+# ============================================================
+
+def dibujar_bandera_cuba(
+    draw,
+    x,
+    y,
+    ancho=90,
+    alto=60,
+):
+    """
+    Bandera cubana vectorial:
+    - 3 franjas azules
+    - 2 franjas blancas
+    - triángulo rojo
+    - estrella blanca
+    """
+
+    azul = (
+        0,
+        42,
+        120,
+        255,
+    )
+
+    blanco = (
+        255,
+        255,
+        255,
+        255,
+    )
+
+    rojo = (
+        204,
+        0,
+        0,
+        255,
+    )
+
+    # Franjas.
+    altura_franja = alto / 5
+
+    for i in range(5):
+
+        color = (
+            azul
+            if i % 2 == 0
+            else blanco
+        )
+
+        y1 = (
+            y
+            + i * altura_franja
+        )
+
+        y2 = (
+            y
+            + (i + 1)
+            * altura_franja
+        )
+
+        draw.rectangle(
+            (
+                x,
+                y1,
+                x + ancho,
+                y2,
+            ),
+            fill=color,
+        )
+
+    # Triángulo rojo.
+    draw.polygon(
+        [
+            (
+                x,
+                y,
+            ),
+            (
+                x
+                + ancho * 0.48,
+                y
+                + alto / 2,
+            ),
+            (
+                x,
+                y + alto,
+            ),
+        ],
+        fill=rojo,
+    )
+
+    # Estrella.
+    cx = (
+        x
+        + ancho * 0.17
+    )
+
+    cy = (
+        y
+        + alto / 2
+    )
+
+    radio_externo = (
+        alto * 0.16
+    )
+
+    radio_interno = (
+        radio_externo * 0.42
+    )
+
+    puntos = []
+
+    for i in range(10):
+
+        angulo = (
+            -math.pi / 2
+            + i * math.pi / 5
+        )
+
+        radio = (
+            radio_externo
+            if i % 2 == 0
+            else radio_interno
+        )
+
+        puntos.append(
+            (
+                cx
+                + math.cos(
+                    angulo
+                ) * radio,
+                cy
+                + math.sin(
+                    angulo
+                ) * radio,
+            )
+        )
+
+    draw.polygon(
+        puntos,
+        fill=blanco,
+    )
+
+    # Borde.
+    draw.rectangle(
+        (
+            x,
+            y,
+            x + ancho,
+            y + alto,
+        ),
+        outline=(
+            255,
+            255,
+            255,
+            150,
+        ),
+        width=3,
+    )
+
+
+# ============================================================
+# ICONO DE RANGO
+# ============================================================
+
+def dibujar_icono_rango(
+    draw,
+    x,
+    y,
+    tamano=60,
+):
+    """
+    Insignia vectorial para representar el rango.
+    No depende de emojis.
+    """
+
+    cx = (
+        x
+        + tamano / 2
+    )
+
+    cy = (
+        y
+        + tamano / 2
+    )
+
+    radio = (
+        tamano * 0.42
+    )
+
+    # Sombra.
+    draw.ellipse(
+        (
+            cx - radio - 5,
+            cy - radio - 5,
+            cx + radio + 5,
+            cy + radio + 5,
+        ),
+        fill=(
+            0,
+            0,
+            0,
+            130,
+        ),
+    )
+
+    # Medalla.
+    draw.ellipse(
+        (
+            cx - radio,
+            cy - radio,
+            cx + radio,
+            cy + radio,
+        ),
+        fill=(
+            255,
+            196,
+            45,
+            255,
+        ),
+        outline=(
+            255,
+            235,
+            130,
+            255,
+        ),
+        width=4,
+    )
+
+    # Estrella.
+    puntos = []
+
+    radio_externo = (
+        radio * 0.65
+    )
+
+    radio_interno = (
+        radio * 0.28
+    )
+
+    for i in range(10):
+
+        angulo = (
+            -math.pi / 2
+            + i * math.pi / 5
+        )
+
+        r = (
+            radio_externo
+            if i % 2 == 0
+            else radio_interno
+        )
+
+        puntos.append(
+            (
+                cx
+                + math.cos(
+                    angulo
+                ) * r,
+                cy
+                + math.sin(
+                    angulo
+                ) * r,
+            )
+        )
+
+    draw.polygon(
+        puntos,
+        fill=(
+            255,
+            255,
+            255,
+            255,
+        ),
+    )
+
+
+# ============================================================
+# ICONO DE TOKENS
+# ============================================================
+
+def dibujar_icono_token(
+    draw,
+    x,
+    y,
+    tamano=45,
+):
+    cx = (
+        x
+        + tamano / 2
+    )
+
+    cy = (
+        y
+        + tamano / 2
+    )
+
+    radio = (
+        tamano / 2
+    )
+
+    draw.ellipse(
+        (
+            cx - radio,
+            cy - radio,
+            cx + radio,
+            cy + radio,
+        ),
+        fill=(
+            255,
+            204,
+            50,
+            255,
+        ),
+        outline=(
+            255,
+            240,
+            150,
+            255,
+        ),
+        width=3,
+    )
+
+    fuente = cargar_fuente(
+        int(
+            tamano * 0.55
+        ),
+        True,
+    )
+
+    texto = "$"
+
+    bbox = draw.textbbox(
+        (0, 0),
+        texto,
+        font=fuente,
+    )
+
+    tw = (
+        bbox[2]
+        - bbox[0]
+    )
+
+    th = (
+        bbox[3]
+        - bbox[1]
+    )
+
+    draw.text(
+        (
+            cx - tw / 2,
+            cy - th / 2 - bbox[1],
+        ),
+        texto,
+        font=fuente,
+        fill=(
+            90,
+            55,
+            0,
+            255,
+        ),
+    )
+
+
+# ============================================================
+# MARCO
+# ============================================================
 
 def dibujar_marco(
     base,
     marco,
 ):
-    marco = _producto_id(marco)
+    marco = _producto_id(
+        marco
+    )
 
     color = COLORES_MARCO.get(
         marco,
-        (100, 100, 120),
+        (
+            100,
+            100,
+            120,
+        ),
     )
 
     capa = Image.new(
         "RGBA",
         base.size,
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
-    draw = ImageDraw.Draw(capa)
+    draw = ImageDraw.Draw(
+        capa
+    )
 
     draw.rounded_rectangle(
         (
-            12,
-            12,
-            ANCHO - 12,
-            ALTO - 12,
+            24,
+            24,
+            ANCHO - 24,
+            ALTO - 24,
         ),
-        radius=30,
+        radius=60,
         outline=(
             *color,
             255,
         ),
-        width=8,
+        width=16,
     )
 
     draw.rounded_rectangle(
         (
-            25,
-            25,
-            ANCHO - 25,
-            ALTO - 25,
+            50,
+            50,
+            ANCHO - 50,
+            ALTO - 50,
         ),
-        radius=24,
+        radius=48,
         outline=(
             *color,
             90,
         ),
-        width=3,
+        width=6,
     )
 
-    base.alpha_composite(capa)
+    base.alpha_composite(
+        capa
+    )
 
+
+# ============================================================
+# DECORACIONES
+# ============================================================
 
 def _dibujar_corazones(
     draw,
     frame,
 ):
     fuente = cargar_fuente(
-        22,
+        44,
         True,
     )
 
     for i in range(9):
-        x = 80 + i * 100
 
-        y = 55 + (
-            (
-                frame * 8
-                + i * 37
-            ) % 450
+        x = (
+            160
+            + i * 200
+        )
+
+        y = (
+            110
+            + (
+                frame * 16
+                + i * 74
+            ) % 900
         )
 
         draw.text(
@@ -613,42 +1368,47 @@ def _dibujar_mariposas(
     frame,
 ):
     for i in range(6):
-        x = 100 + i * 140
 
-        y = 70 + (
-            (
-                frame * 7
-                + i * 60
-            ) % 390
+        x = (
+            200
+            + i * 280
+        )
+
+        y = (
+            140
+            + (
+                frame * 14
+                + i * 120
+            ) % 780
         )
 
         draw.ellipse(
             (
-                x - 12,
-                y - 5,
+                x - 24,
+                y - 10,
                 x,
-                y + 8,
+                y + 16,
             ),
             fill=(
                 190,
                 120,
                 255,
-                120,
+                140,
             ),
         )
 
         draw.ellipse(
             (
                 x,
-                y - 5,
-                x + 12,
-                y + 8,
+                y - 10,
+                x + 24,
+                y + 16,
             ),
             fill=(
                 100,
                 200,
                 255,
-                120,
+                140,
             ),
         )
 
@@ -657,15 +1417,15 @@ def _dibujar_mariposas(
                 x,
                 y,
                 x,
-                y + 13,
+                y + 26,
             ),
             fill=(
                 255,
                 255,
                 255,
-                130,
+                160,
             ),
-            width=2,
+            width=4,
         )
 
 
@@ -673,21 +1433,71 @@ def _dibujar_corona(
     draw,
     frame,
 ):
-    fuente = cargar_fuente(
-        70,
-        True,
-    )
+    # Corona vectorial para evitar problemas
+    # con fuentes de emojis.
+    x = ANCHO - 330
+    y = 60
 
-    draw.text(
-        (ANCHO - 170, 35),
-        "♛",
-        font=fuente,
+    puntos = [
+        (
+            x,
+            y + 100,
+        ),
+        (
+            x + 30,
+            y + 15,
+        ),
+        (
+            x + 95,
+            y + 80,
+        ),
+        (
+            x + 150,
+            y + 15,
+        ),
+        (
+            x + 190,
+            y + 100,
+        ),
+    ]
+
+    draw.polygon(
+        puntos,
         fill=(
             255,
+            215,
+            60,
             220,
-            80,
-            180,
         ),
+        outline=(
+            255,
+            240,
+            150,
+            255,
+        ),
+    )
+
+    draw.rounded_rectangle(
+        (
+            x,
+            y + 90,
+            x + 190,
+            y + 130,
+        ),
+        radius=12,
+        fill=(
+            255,
+            190,
+            40,
+            230,
+        ),
+        outline=(
+            255,
+            240,
+            150,
+            255,
+        ),
+        width=4,
     )
 
 
@@ -703,27 +1513,32 @@ def _dibujar_neon(
     )
 
     for i in range(5):
+
         y = (
-            100
-            + i * 80
+            200
+            + i * 160
             + int(
                 math.sin(
                     frame / 2 + i
-                ) * 15
+                ) * 30
             )
         )
 
         draw.line(
             (
-                40,
+                80,
                 y,
-                ANCHO - 40,
+                ANCHO - 80,
                 y,
             ),
             fill=color,
-            width=2,
+            width=4,
         )
 
+
+# ============================================================
+# EFECTOS
+# ============================================================
 
 def dibujar_efecto(
     base,
@@ -733,17 +1548,27 @@ def dibujar_efecto(
     capa = Image.new(
         "RGBA",
         base.size,
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
-    draw = ImageDraw.Draw(capa)
+    draw = ImageDraw.Draw(
+        capa
+    )
 
     efecto = _producto_id(
         efecto
     ) or ""
 
     if efecto == "efecto_fuego":
-        _efecto_fuego(draw, frame)
+        _efecto_fuego(
+            draw,
+            frame,
+        )
 
     elif efecto == "efecto_electricidad":
         _efecto_electricidad(
@@ -811,24 +1636,38 @@ def dibujar_efecto(
             frame,
         )
 
-    base.alpha_composite(capa)
+    base.alpha_composite(
+        capa
+    )
 
 
-def _efecto_fuego(draw, frame):
-    random.seed(1000 + frame)
+def _efecto_fuego(
+    draw,
+    frame,
+):
+    random.seed(
+        1000 + frame
+    )
 
-    for _ in range(45):
+    for _ in range(90):
+
         x = random.randint(
-            25,
-            ANCHO - 25,
+            50,
+            ANCHO - 50,
         )
 
-        y = ALTO - random.randint(
-            20,
-            120,
+        y = (
+            ALTO
+            - random.randint(
+                40,
+                240,
+            )
         )
 
-        r = random.randint(2, 7)
+        r = random.randint(
+            4,
+            14,
+        )
 
         draw.ellipse(
             (
@@ -839,34 +1678,50 @@ def _efecto_fuego(draw, frame):
             ),
             fill=(
                 255,
-                random.randint(80, 190),
+                random.randint(
+                    80,
+                    190,
+                ),
                 30,
-                random.randint(80, 180),
+                random.randint(
+                    80,
+                    180,
+                ),
             ),
         )
 
 
-def _efecto_electricidad(draw, frame):
-    random.seed(2000 + frame)
+def _efecto_electricidad(
+    draw,
+    frame,
+):
+    random.seed(
+        2000 + frame
+    )
 
-    for _ in range(10):
+    for _ in range(20):
+
         x = random.randint(
-            40,
-            ANCHO - 40,
+            80,
+            ANCHO - 80,
         )
 
-        puntos = [(x, 20)]
-        y = 20
+        puntos = [
+            (x, 40)
+        ]
 
-        while y < ALTO - 20:
+        y = 40
+
+        while y < ALTO - 40:
+
             y += random.randint(
-                25,
-                55,
+                50,
+                110,
             )
 
             x += random.randint(
-                -25,
-                25,
+                -50,
+                50,
             )
 
             puntos.append(
@@ -879,27 +1734,36 @@ def _efecto_electricidad(draw, frame):
                 100,
                 220,
                 255,
-                170,
+                180,
             ),
-            width=2,
+            width=4,
         )
 
 
-def _efecto_escarcha(draw, frame):
-    random.seed(3000 + frame)
+def _efecto_escarcha(
+    draw,
+    frame,
+):
+    random.seed(
+        3000 + frame
+    )
 
-    for _ in range(55):
+    for _ in range(110):
+
         x = random.randint(
-            20,
-            ANCHO - 20,
+            40,
+            ANCHO - 40,
         )
 
         y = random.randint(
-            20,
-            ALTO - 20,
+            40,
+            ALTO - 40,
         )
 
-        r = random.randint(2, 5)
+        r = random.randint(
+            4,
+            10,
+        )
 
         draw.ellipse(
             (
@@ -917,21 +1781,30 @@ def _efecto_escarcha(draw, frame):
         )
 
 
-def _efecto_chispas(draw, frame):
-    random.seed(4000 + frame)
+def _efecto_chispas(
+    draw,
+    frame,
+):
+    random.seed(
+        4000 + frame
+    )
 
-    for _ in range(60):
+    for _ in range(120):
+
         x = random.randint(
-            20,
-            ANCHO - 20,
+            40,
+            ANCHO - 40,
         )
 
         y = random.randint(
-            20,
-            ALTO - 20,
+            40,
+            ALTO - 40,
         )
 
-        r = random.randint(1, 3)
+        r = random.randint(
+            2,
+            7,
+        )
 
         draw.ellipse(
             (
@@ -949,35 +1822,43 @@ def _efecto_chispas(draw, frame):
         )
 
 
-def _efecto_cosmico(draw, frame):
+def _efecto_cosmico(
+    draw,
+    frame,
+):
     random.seed(5000)
 
-    for i in range(70):
+    for i in range(140):
+
         angulo = (
             i * 37
             + frame * 8
         ) % 360
 
         radio = (
-            80
-            + (i * 17) % 300
+            160
+            + (i * 34) % 600
         )
 
         cx = (
             ANCHO // 2
             + math.cos(
-                math.radians(angulo)
+                math.radians(
+                    angulo
+                )
             ) * radio
         )
 
         cy = (
             ALTO // 2
             + math.sin(
-                math.radians(angulo)
+                math.radians(
+                    angulo
+                )
             ) * radio
         )
 
-        r = 1 + i % 3
+        r = 2 + i % 6
 
         draw.ellipse(
             (
@@ -990,12 +1871,15 @@ def _efecto_cosmico(draw, frame):
                 190,
                 150,
                 255,
-                120,
+                140,
             ),
         )
 
 
-def _efecto_aura(draw, frame):
+def _efecto_aura(
+    draw,
+    frame,
+):
     alpha = (
         70
         + int(
@@ -1008,10 +1892,10 @@ def _efecto_aura(draw, frame):
 
     draw.ellipse(
         (
-            100,
-            60,
-            ANCHO - 100,
-            ALTO - 60,
+            200,
+            120,
+            ANCHO - 200,
+            ALTO - 120,
         ),
         outline=(
             100,
@@ -1019,31 +1903,40 @@ def _efecto_aura(draw, frame):
             255,
             alpha,
         ),
-        width=12,
+        width=24,
     )
 
 
-def _efecto_corazones(draw, frame):
-    random.seed(6000 + frame)
+def _efecto_corazones(
+    draw,
+    frame,
+):
+    random.seed(
+        6000 + frame
+    )
 
     fuente = cargar_fuente(
-        22,
+        44,
         True,
     )
 
-    for _ in range(16):
+    for _ in range(32):
+
         x = random.randint(
-            25,
-            ANCHO - 45,
+            50,
+            ANCHO - 90,
         )
 
         y = random.randint(
-            25,
-            ALTO - 45,
+            50,
+            ALTO - 90,
         )
 
         draw.text(
-            (x, y),
+            (
+                x,
+                y,
+            ),
             "♥",
             font=fuente,
             fill=(
@@ -1058,26 +1951,32 @@ def _efecto_corazones(draw, frame):
         )
 
 
-def _efecto_petalo(draw, frame):
-    random.seed(7000 + frame)
+def _efecto_petalo(
+    draw,
+    frame,
+):
+    random.seed(
+        7000 + frame
+    )
 
-    for _ in range(30):
+    for _ in range(60):
+
         x = random.randint(
-            20,
-            ANCHO - 20,
+            40,
+            ANCHO - 40,
         )
 
         y = random.randint(
-            20,
-            ALTO - 20,
+            40,
+            ALTO - 40,
         )
 
         draw.ellipse(
             (
-                x - 4,
-                y - 8,
-                x + 4,
-                y + 8,
+                x - 8,
+                y - 16,
+                x + 8,
+                y + 16,
             ),
             fill=(
                 255,
@@ -1088,32 +1987,48 @@ def _efecto_petalo(draw, frame):
         )
 
 
-def _efecto_mariposas(draw, frame):
+def _efecto_mariposas(
+    draw,
+    frame,
+):
     _dibujar_mariposas(
         draw,
         frame,
     )
 
 
-def _efecto_burbujas(draw, frame):
-    for i in range(20):
+def _efecto_burbujas(
+    draw,
+    frame,
+):
+    for i in range(40):
+
         x = (
-            30
+            60
             + (
-                i * 73
-                + frame * 4
-            ) % (ANCHO - 60)
+                i * 146
+                + frame * 8
+            )
+            % (
+                ANCHO - 120
+            )
         )
 
         y = (
             ALTO
             - (
-                i * 47
-                + frame * 8
-            ) % (ALTO - 40)
+                i * 94
+                + frame * 16
+            )
+            % (
+                ALTO - 80
+            )
         )
 
-        r = 4 + i % 7
+        r = (
+            8
+            + i % 14
+        )
 
         draw.ellipse(
             (
@@ -1128,26 +2043,30 @@ def _efecto_burbujas(draw, frame):
                 255,
                 120,
             ),
-            width=2,
+            width=4,
         )
 
 
-def _efecto_estrellas(draw, frame):
+def _efecto_estrellas(
+    draw,
+    frame,
+):
     random.seed(9000)
 
-    for i in range(35):
+    for i in range(70):
+
         x = random.randint(
-            20,
-            ANCHO - 20,
+            40,
+            ANCHO - 40,
         )
 
         y = random.randint(
-            20,
-            ALTO - 20,
+            40,
+            ALTO - 40,
         )
 
-        r = 2 + (
-            (i + frame) % 3
+        r = 4 + (
+            (i + frame) % 6
         )
 
         draw.line(
@@ -1161,9 +2080,9 @@ def _efecto_estrellas(draw, frame):
                 255,
                 255,
                 220,
-                160,
+                180,
             ),
-            width=1,
+            width=2,
         )
 
         draw.line(
@@ -1177,24 +2096,60 @@ def _efecto_estrellas(draw, frame):
                 255,
                 255,
                 220,
-                160,
+                180,
             ),
-            width=1,
+            width=2,
         )
 
 
-def _efecto_arcoiris(draw, frame):
+def _efecto_arcoiris(
+    draw,
+    frame,
+):
     colores = [
-        (255, 70, 70, 150),
-        (255, 170, 50, 150),
-        (255, 240, 70, 150),
-        (70, 230, 120, 150),
-        (70, 180, 255, 150),
-        (150, 90, 255, 150),
+        (
+            255,
+            70,
+            70,
+            150,
+        ),
+        (
+            255,
+            170,
+            50,
+            150,
+        ),
+        (
+            255,
+            240,
+            70,
+            150,
+        ),
+        (
+            70,
+            230,
+            120,
+            150,
+        ),
+        (
+            70,
+            180,
+            255,
+            150,
+        ),
+        (
+            150,
+            90,
+            255,
+            150,
+        ),
     ]
 
-    for i, color in enumerate(colores):
-        margen = i * 7
+    for i, color in enumerate(
+        colores
+    ):
+
+        margen = i * 14
 
         draw.rounded_rectangle(
             (
@@ -1203,11 +2158,15 @@ def _efecto_arcoiris(draw, frame):
                 ANCHO - margen,
                 ALTO - margen,
             ),
-            radius=35,
+            radius=70,
             outline=color,
-            width=4,
+            width=8,
         )
 
+
+# ============================================================
+# ACCESORIOS
+# ============================================================
 
 def _dibujar_accesorio(
     base,
@@ -1224,14 +2183,26 @@ def _dibujar_accesorio(
     capa = Image.new(
         "RGBA",
         base.size,
-        (0, 0, 0, 0),
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
     )
 
-    draw = ImageDraw.Draw(capa)
+    draw = ImageDraw.Draw(
+        capa
+    )
 
-    nombre = accesorio.lower()
+    nombre = (
+        accesorio.lower()
+    )
 
-    if "corona" in nombre:
+    if (
+        "corona" in nombre
+        or nombre == "insignia_corona"
+    ):
         _dibujar_corona(
             draw,
             frame,
@@ -1243,8 +2214,214 @@ def _dibujar_accesorio(
             frame,
         )
 
-    base.alpha_composite(capa)
+    base.alpha_composite(
+        capa
+    )
 
+
+# ============================================================
+# INSIGNIAS
+# ============================================================
+
+def dibujar_insignia(
+    base,
+    insignia,
+):
+    insignia = _producto_id(
+        insignia
+    )
+
+    if not insignia:
+        return
+
+    capa = Image.new(
+        "RGBA",
+        base.size,
+        (
+            0,
+            0,
+            0,
+            0,
+        ),
+    )
+
+    draw = ImageDraw.Draw(
+        capa
+    )
+
+    x = 1510
+    y = 780
+    tamano = 130
+
+    color = (
+        255,
+        210,
+        70,
+        255,
+    )
+
+    if insignia == "insignia_rayo":
+        color = (
+            255,
+            220,
+            70,
+            255,
+        )
+
+    elif insignia == "insignia_corazon":
+        color = (
+            255,
+            80,
+            130,
+            255,
+        )
+
+    elif insignia == "insignia_estelar":
+        color = (
+            130,
+            210,
+            255,
+            255,
+        )
+
+    elif insignia == "insignia_arcana":
+        color = (
+            190,
+            110,
+            255,
+            255,
+        )
+
+    draw.ellipse(
+        (
+            x,
+            y,
+            x + tamano,
+            y + tamano,
+        ),
+        fill=(
+            20,
+            20,
+            35,
+            220,
+        ),
+        outline=color,
+        width=8,
+    )
+
+    cx = (
+        x + tamano / 2
+    )
+
+    cy = (
+        y + tamano / 2
+    )
+
+    if insignia == "insignia_corona":
+
+        _dibujar_corona(
+            draw,
+            0,
+        )
+
+    elif insignia == "insignia_corazon":
+
+        fuente = cargar_fuente(
+            70,
+            True,
+        )
+
+        draw.text(
+            (
+                cx - 36,
+                cy - 45,
+            ),
+            "♥",
+            font=fuente,
+            fill=color,
+        )
+
+    elif insignia == "insignia_rayo":
+
+        draw.polygon(
+            [
+                (
+                    cx + 15,
+                    cy - 55,
+                ),
+                (
+                    cx - 25,
+                    cy + 5,
+                ),
+                (
+                    cx,
+                    cy + 5,
+                ),
+                (
+                    cx - 15,
+                    cy + 55,
+                ),
+                (
+                    cx + 35,
+                    cy - 15,
+                ),
+                (
+                    cx + 8,
+                    cy - 15,
+                ),
+            ],
+            fill=color,
+        )
+
+    elif insignia in (
+        "insignia_estelar",
+        "insignia_arcana",
+    ):
+
+        puntos = []
+
+        radio_externo = 42
+        radio_interno = 18
+
+        for i in range(10):
+
+            angulo = (
+                -math.pi / 2
+                + i * math.pi / 5
+            )
+
+            radio = (
+                radio_externo
+                if i % 2 == 0
+                else radio_interno
+            )
+
+            puntos.append(
+                (
+                    cx
+                    + math.cos(
+                        angulo
+                    ) * radio,
+                    cy
+                    + math.sin(
+                        angulo
+                    ) * radio,
+                )
+            )
+
+        draw.polygon(
+            puntos,
+            fill=color,
+        )
+
+    base.alpha_composite(
+        capa
+    )
+
+
+# ============================================================
+# GENERADOR PRINCIPAL
+# ============================================================
 
 def generar_perfil(
     nombre,
@@ -1257,43 +2434,100 @@ def generar_perfil(
     avatar=None,
     equipados=None,
 ):
+    """
+    Genera el perfil visual HD.
+
+    Devuelve:
+
+        bytes,
+        mime,
+        animado
+    """
+
     equipados = normalizar_equipados(
         equipados
     )
 
-    marco = equipados.get("marco")
-    fondo = equipados.get("fondo")
-    efecto = equipados.get("efecto")
-    accesorio = equipados.get("accesorio")
+    # --------------------------------------------------------
+    # EQUIPAMIENTO
+    # --------------------------------------------------------
 
-    color_nombre = (
-        equipados.get("color")
-        or equipados.get("color_nombre")
+    marco = _producto_id(
+        equipados.get(
+            "marco"
+        )
+    )
+
+    fondo = _producto_id(
+        equipados.get(
+            "fondo"
+        )
+    )
+
+    efecto = _producto_id(
+        equipados.get(
+            "efecto"
+        )
+    )
+
+    accesorio = _producto_id(
+        equipados.get(
+            "accesorio"
+        )
+    )
+
+    insignia = _producto_id(
+        equipados.get(
+            "insignia"
+        )
     )
 
     color_nombre = _producto_id(
-        color_nombre
+        equipados.get(
+            "color"
+        )
+        or equipados.get(
+            "color_nombre"
+        )
     )
 
-    marco = _producto_id(marco)
-    fondo = _producto_id(fondo)
-    efecto = _producto_id(efecto)
-    accesorio = _producto_id(accesorio)
+    # --------------------------------------------------------
+    # COLOR DEL NOMBRE
+    # --------------------------------------------------------
 
     color_texto = COLORES_NOMBRE.get(
         color_nombre,
-        (255, 255, 255),
+        (
+            255,
+            255,
+            255,
+        ),
     )
 
+    # --------------------------------------------------------
+    # AVATAR
+    # --------------------------------------------------------
+
     if avatar is None:
-        avatar_img = crear_avatar_iniciales(
-            nombre,
-            190,
+
+        avatar_img = (
+            crear_avatar_iniciales(
+                nombre,
+                380,
+            )
         )
+
     else:
+
         avatar_img = avatar
 
-    animado = bool(efecto)
+    # --------------------------------------------------------
+    # ANIMACIÓN
+    # --------------------------------------------------------
+
+    animado = bool(
+        efecto
+    )
 
     cantidad_frames = (
         FRAMES_ANIMADOS
@@ -1303,22 +2537,40 @@ def generar_perfil(
 
     frames = []
 
+    # ========================================================
+    # CREACIÓN DE FRAMES
+    # ========================================================
+
     for frame in range(
         cantidad_frames
     ):
+
         imagen = Image.new(
             "RGBA",
             (
                 ANCHO,
                 ALTO,
             ),
-            (0, 0, 0, 255),
+            (
+                0,
+                0,
+                0,
+                255,
+            ),
         )
+
+        # ----------------------------------------------------
+        # FONDO
+        # ----------------------------------------------------
 
         dibujar_fondo(
             imagen,
             fondo,
         )
+
+        # ----------------------------------------------------
+        # EFECTO
+        # ----------------------------------------------------
 
         dibujar_efecto(
             imagen,
@@ -1326,48 +2578,99 @@ def generar_perfil(
             frame,
         )
 
+        # ----------------------------------------------------
+        # ACCESORIO
+        # ----------------------------------------------------
+
         _dibujar_accesorio(
             imagen,
             accesorio,
             frame,
         )
 
+        # ----------------------------------------------------
+        # AVATAR
+        # ----------------------------------------------------
+
         dibujar_avatar(
             imagen,
             avatar_img,
-            70,
-            130,
-            190,
+            140,
+            260,
+            380,
         )
 
         draw = ImageDraw.Draw(
             imagen
         )
 
-        fuente_nombre = cargar_fuente(
-            42,
-            True,
+        # ----------------------------------------------------
+        # FUENTES HD
+        # ----------------------------------------------------
+
+        fuente_nombre = (
+            cargar_fuente(
+                84,
+                True,
+            )
         )
 
-        fuente_info = cargar_fuente(
-            25,
-            False,
+        fuente_info = (
+            cargar_fuente(
+                50,
+                False,
+            )
         )
 
-        fuente_pequena = cargar_fuente(
-            20,
-            False,
+        fuente_pequena = (
+            cargar_fuente(
+                40,
+                False,
+            )
         )
 
-        nombre_mostrado = texto_ajustado(
-            draw,
-            nombre,
-            fuente_nombre,
-            570,
+        fuente_footer = (
+            cargar_fuente(
+                30,
+                True,
+            )
         )
 
+        # ----------------------------------------------------
+        # NOMBRE
+        # ----------------------------------------------------
+
+        nombre_mostrado = (
+            texto_ajustado(
+                draw,
+                nombre,
+                fuente_nombre,
+                1120,
+            )
+        )
+
+        # Sombra del nombre.
         draw.text(
-            (300, 105),
+            (
+                600 + 5,
+                190 + 5,
+            ),
+            nombre_mostrado,
+            font=fuente_nombre,
+            fill=(
+                0,
+                0,
+                0,
+                170,
+            ),
+        )
+
+        # Nombre con el color equipado.
+        draw.text(
+            (
+                600,
+                190,
+            ),
             nombre_mostrado,
             font=fuente_nombre,
             fill=(
@@ -1376,76 +2679,158 @@ def generar_perfil(
             ),
         )
 
+        # ----------------------------------------------------
+        # NIVEL
+        # ----------------------------------------------------
+
         draw.text(
-            (300, 165),
+            (
+                600,
+                320,
+            ),
             f"Nivel {nivel}",
             font=fuente_info,
             fill=(
                 255,
                 255,
                 255,
-                235,
+                240,
             ),
         )
 
+        # ----------------------------------------------------
+        # RANGO + INSIGNIA
+        # ----------------------------------------------------
+
+        dibujar_icono_rango(
+            draw,
+            600,
+            405,
+            70,
+        )
+
         draw.text(
-            (300, 205),
+            (
+                690,
+                412,
+            ),
             f"Rango: {rango}",
             font=fuente_info,
             fill=(
-                225,
-                225,
                 235,
                 235,
+                245,
+                240,
             ),
         )
 
+        # ----------------------------------------------------
+        # XP
+        # ----------------------------------------------------
+
         draw.text(
-            (300, 245),
+            (
+                600,
+                500,
+            ),
             f"XP: {xp_total} / {xp_siguiente}",
             font=fuente_info,
             fill=(
                 225,
                 225,
                 235,
-                235,
+                240,
             ),
         )
 
+        # ----------------------------------------------------
+        # TOKENS
+        # ----------------------------------------------------
+
+        dibujar_icono_token(
+            draw,
+            600,
+            590,
+            55,
+        )
+
         draw.text(
-            (300, 285),
+            (
+                675,
+                592,
+            ),
             f"Tokens: {tokens}",
             font=fuente_info,
             fill=(
                 255,
                 215,
                 80,
-                240,
+                245,
             ),
         )
 
+        # ----------------------------------------------------
+        # PAÍS
+        # ----------------------------------------------------
+
         if pais:
+
+            pais_texto = str(
+                pais
+            )
+
+            # Si viene "🇨🇺 Cuba", eliminamos
+            # el emoji porque puede no renderizarse.
+            pais_limpio = (
+                pais_texto
+                .replace(
+                    "🇨🇺",
+                    "",
+                )
+                .strip()
+            )
+
+            dibujar_bandera_cuba(
+                draw,
+                600,
+                700,
+                90,
+                60,
+            )
+
             draw.text(
-                (300, 325),
-                f"País: {pais}",
+                (
+                    720,
+                    704,
+                ),
+                pais_limpio,
                 font=fuente_pequena,
                 fill=(
                     210,
                     225,
                     235,
-                    230,
+                    235,
                 ),
             )
 
+        # ----------------------------------------------------
+        # BARRA XP
+        # ----------------------------------------------------
+
         try:
+
             xp_actual = max(
                 0,
-                float(xp_total),
+                float(
+                    xp_total
+                ),
             )
 
             xp_meta = max(
                 1,
-                float(xp_siguiente),
+                float(
+                    xp_siguiente
+                ),
             )
 
             progreso = min(
@@ -1458,13 +2843,16 @@ def generar_perfil(
             ValueError,
             ZeroDivisionError,
         ):
+
             progreso = 0.0
 
-        barra_x = 300
-        barra_y = 375
-        barra_w = 500
-        barra_h = 24
+        barra_x = 600
+        barra_y = 820
 
+        barra_w = 1050
+        barra_h = 44
+
+        # Fondo.
         draw.rounded_rectangle(
             (
                 barra_x,
@@ -1472,12 +2860,12 @@ def generar_perfil(
                 barra_x + barra_w,
                 barra_y + barra_h,
             ),
-            radius=12,
+            radius=22,
             fill=(
                 25,
                 25,
                 35,
-                210,
+                220,
             ),
             outline=(
                 255,
@@ -1485,44 +2873,70 @@ def generar_perfil(
                 255,
                 80,
             ),
-            width=2,
+            width=4,
         )
 
+        # Progreso.
         if progreso > 0:
+
+            ancho_progreso = max(
+                44,
+                int(
+                    barra_w
+                    * progreso
+                ),
+            )
+
             draw.rounded_rectangle(
                 (
                     barra_x,
                     barra_y,
                     barra_x
-                    + int(
-                        barra_w
-                        * progreso
-                    ),
+                    + ancho_progreso,
                     barra_y
                     + barra_h,
                 ),
-                radius=12,
+                radius=22,
                 fill=(
                     70,
                     200,
                     255,
-                    230,
+                    235,
                 ),
             )
 
+        # ----------------------------------------------------
+        # INSIGNIA EQUIPADA
+        # ----------------------------------------------------
+
+        if insignia:
+            dibujar_insignia(
+                imagen,
+                insignia,
+            )
+
+        # ----------------------------------------------------
+        # MARCO
+        # ----------------------------------------------------
+
         if marco:
+
             dibujar_marco(
                 imagen,
                 marco,
             )
 
+        # ----------------------------------------------------
+        # FOOTER
+        # ----------------------------------------------------
+
         draw.text(
-            (55, ALTO - 55),
-            "Reidi Studios",
-            font=cargar_fuente(
-                18,
-                True,
+            (
+                110,
+                ALTO - 90,
             ),
+            "Reidi Studios",
+            font=fuente_footer,
             fill=(
                 255,
                 255,
@@ -1531,13 +2945,24 @@ def generar_perfil(
             ),
         )
 
+        # ----------------------------------------------------
+        # EXPORTACIÓN DEL FRAME
+        # ----------------------------------------------------
+
         frames.append(
-            imagen.convert("RGB")
+            imagen.convert(
+                "RGB"
+            )
         )
+
+    # ========================================================
+    # SALIDA
+    # ========================================================
 
     salida = io.BytesIO()
 
     if animado:
+
         frames[0].save(
             salida,
             format="GIF",
@@ -1553,9 +2978,11 @@ def generar_perfil(
         mime = "image/gif"
 
     else:
+
         frames[0].save(
             salida,
             format="PNG",
+            optimize=True,
         )
 
         mime = "image/png"

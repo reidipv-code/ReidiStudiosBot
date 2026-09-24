@@ -1905,4 +1905,4 @@ def generar_perfil(
         salida.getvalue(),
         "image/png",
         False
-)
+    )

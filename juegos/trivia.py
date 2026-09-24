@@ -12,14 +12,14 @@ from core.logros import actualizar_stat, dar_logro, obtener_stats
 from core.misiones import sumar_progreso
 from core.tienda import aplicar_bonus_xp, cantidad_con_bonus_tokens
 
-COOLDOWN_PERDIDA = 420
-COOLDOWN_VICTORIA = 600
+COOLDOWN_PERDIDA = 195
+COOLDOWN_VICTORIA = 240
 
 CONFIG_DIFICULTAD = {
-    "facil":   {"tiempo": 40,  "premio_tokens": 30, "premio_xp": 30},
-    "normal":  {"tiempo": 60,  "premio_tokens": 50, "premio_xp": 50},
-    "dificil": {"tiempo": 120, "premio_tokens": 80, "premio_xp": 80},
-}
+    "facil":   {"tiempo": 30,  "premio_tokens": 30, "premio_xp": 30},
+    "normal":  {"tiempo": 50,  "premio_tokens": 50, "premio_xp": 50},
+    "dificil": {"tiempo": 100, "premio_tokens": 80, "premio_xp": 80},
+
 
 TODAS_CATEGORIAS = {**TRIVIA, **MUNDO}
 

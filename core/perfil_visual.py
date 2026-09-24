@@ -1,40 +1,94 @@
 import io
 import math
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+from PIL import Image, ImageDraw, ImageFont
+
 from core.paises import PAISES
 
 
 # ============================================================
-# CONFIGURACIÓN
+# CONFIGURACIÓN GENERAL
 # ============================================================
 
 ANCHO = 1920
 ALTO = 1080
 
-FONT_NOMBRE = 112
-FONT_PAIS = 52
-FONT_INFO = 44
+# ============================================================
+# FUENTES
+# ============================================================
 
-FONT_NIVEL = 68
+# DejaVu Sans es una fuente de sistema disponible normalmente
+# en Linux/Railway y tiene muy buena compatibilidad Unicode.
+FUENTE_NORMAL = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+]
+
+FUENTE_NEGRITA = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+]
+
+# Fuente alternativa para símbolos/emojis.
+FUENTE_EMOJI = [
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/opentype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf",
+]
+
+
+# ============================================================
+# TAMAÑOS DE LETRA
+# ============================================================
+
+FONT_NOMBRE = 116
+FONT_PAIS = 52
+
+FONT_ID = 42
+FONT_TOKENS = 44
+
+FONT_NIVEL = 70
 FONT_XP = 62
-FONT_PORCENTAJE = 50
-FONT_RANGO = 54
+FONT_PORCENTAJE = 52
+FONT_RANGO = 56
+
+# Emojis grandes.
+FONT_EMOJI = 58
+
+
+# ============================================================
+# TAMAÑOS DE ELEMENTOS
+# ============================================================
 
 TAM_AVATAR = 360
-TAM_ICONO = 54
+
+TAM_ICONO = 58
+
+# Bandera pequeña y proporcionada.
+FLAG_W = 82
+FLAG_H = 52
+
+
+# ============================================================
+# POSICIONES
+# ============================================================
 
 X_CONTENIDO = 540
 
-Y_NOMBRE = 90
-Y_PAIS = 215
+Y_NOMBRE = 105
+Y_PAIS = 220
 
-Y_INFO = 310
+Y_ID = 315
+Y_BOT_ID = 370
+Y_TELEGRAM_ID = 425
+Y_TOKENS = 480
 
-Y_NIVEL = 520
-Y_XP = 600
-Y_BARRA = 685
-Y_PORCENTAJE = 765
-Y_RANGO = 835
+# XP completamente agrupado.
+Y_NIVEL = 570
+Y_XP = 650
+Y_BARRA = 735
+Y_PORCENTAJE = 815
+Y_RANGO = 895
 
 
 # ============================================================
@@ -54,23 +108,48 @@ COLORES_NOMBRE = {
     "esmeralda": (50, 220, 150),
 }
 
+
 COLORES_MARCO = {
-    "normal": (80, 90, 110),
+    "normal": (95, 105, 125),
     "oro": (255, 205, 70),
-    "plata": (190, 200, 215),
+    "plata": (200, 210, 225),
     "diamante": (100, 220, 255),
     "rojo": (255, 80, 80),
     "morado": (180, 90, 255),
     "esmeralda": (50, 220, 150),
 }
 
+
 COLORES_FONDO = {
-    "normal": ((20, 25, 40), (45, 55, 85)),
-    "azul": ((10, 25, 55), (30, 90, 150)),
-    "morado": ((30, 15, 55), (100, 40, 150)),
-    "rojo": ((50, 12, 20), (150, 35, 50)),
-    "verde": ((10, 40, 25), (30, 130, 80)),
-    "esmeralda": ((5, 35, 30), (20, 130, 100)),
+    "normal": (
+        (18, 23, 38),
+        (48, 60, 90)
+    ),
+
+    "azul": (
+        (8, 22, 50),
+        (25, 85, 150)
+    ),
+
+    "morado": (
+        (25, 12, 50),
+        (95, 35, 145)
+    ),
+
+    "rojo": (
+        (45, 10, 18),
+        (145, 32, 48)
+    ),
+
+    "verde": (
+        (8, 35, 22),
+        (25, 125, 75)
+    ),
+
+    "esmeralda": (
+        (5, 30, 27),
+        (20, 125, 95)
+    ),
 }
 
 
@@ -95,7 +174,7 @@ ALIASES_PRODUCTOS = {
 
 
 # ============================================================
-# UTILIDADES
+# PRODUCTOS
 # ============================================================
 
 def _producto_id(producto):
@@ -103,11 +182,20 @@ def _producto_id(producto):
         return ""
 
     if isinstance(producto, dict):
-        for clave in ("id", "producto_id", "nombre", "item"):
+        for clave in (
+            "id",
+            "producto_id",
+            "nombre",
+            "item"
+        ):
             if producto.get(clave) is not None:
-                return str(producto[clave]).lower().strip()
+                return str(
+                    producto[clave]
+                ).lower().strip()
 
-    return str(producto).lower().strip()
+    return str(
+        producto
+    ).lower().strip()
 
 
 def normalizar_equipados(equipados):
@@ -115,70 +203,136 @@ def normalizar_equipados(equipados):
         return []
 
     if isinstance(equipados, dict):
+
         resultado = []
 
         for clave, valor in equipados.items():
-            if isinstance(valor, (list, tuple, set)):
+
+            if isinstance(
+                valor,
+                (list, tuple, set)
+            ):
                 resultado.extend(valor)
+
             elif valor:
                 resultado.append(valor)
+
             else:
                 resultado.append(clave)
 
         return resultado
 
-    if isinstance(equipados, (list, tuple, set)):
+    if isinstance(
+        equipados,
+        (list, tuple, set)
+    ):
         return list(equipados)
 
     return [equipados]
 
 
-def cargar_fuente(tamano, negrita=False):
-    if negrita:
-        rutas = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
-        ]
-    else:
-        rutas = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
-        ]
+# ============================================================
+# FUENTES
+# ============================================================
+
+def cargar_fuente(
+    tamano,
+    negrita=False
+):
+    rutas = (
+        FUENTE_NEGRITA
+        if negrita
+        else FUENTE_NORMAL
+    )
 
     for ruta in rutas:
         try:
-            return ImageFont.truetype(ruta, tamano)
+            return ImageFont.truetype(
+                ruta,
+                tamano
+            )
         except Exception:
             pass
 
-    return ImageFont.load_default()
+    # Fallback de Pillow.
+    try:
+        return ImageFont.load_default(
+            size=32
+        )
+    except Exception:
+        return ImageFont.load_default()
 
 
-def texto_ajustado(draw, texto, fuente, max_ancho):
+def cargar_fuente_emoji(
+    tamano=FONT_EMOJI
+):
+    for ruta in FUENTE_EMOJI:
+        try:
+            return ImageFont.truetype(
+                ruta,
+                tamano
+            )
+        except Exception:
+            pass
+
+    return cargar_fuente(
+        tamano
+    )
+
+
+# ============================================================
+# TEXTO
+# ============================================================
+
+def texto_ajustado(
+    draw,
+    texto,
+    fuente,
+    max_ancho
+):
     texto = str(texto)
 
-    if draw.textbbox((0, 0), texto, font=fuente)[2] <= max_ancho:
+    bbox = draw.textbbox(
+        (0, 0),
+        texto,
+        font=fuente
+    )
+
+    if (
+        bbox[2] - bbox[0]
+        <= max_ancho
+    ):
         return texto
 
     while len(texto) > 3:
+
         texto = texto[:-1]
+
         prueba = texto + "..."
 
-        if draw.textbbox(
+        bbox = draw.textbbox(
             (0, 0),
             prueba,
             font=fuente
-        )[2] <= max_ancho:
+        )
+
+        if (
+            bbox[2] - bbox[0]
+            <= max_ancho
+        ):
             return prueba
 
     return "..."
 
 
 # ============================================================
-# FONDO
+# GRADIENTE
 # ============================================================
 
-def crear_gradiente(color1, color2):
+def crear_gradiente(
+    color1,
+    color2
+):
     imagen = Image.new(
         "RGB",
         (ANCHO, ALTO)
@@ -187,7 +341,13 @@ def crear_gradiente(color1, color2):
     pixeles = imagen.load()
 
     for y in range(ALTO):
-        factor = y / max(1, ALTO - 1)
+
+        factor = (
+            y / max(
+                1,
+                ALTO - 1
+            )
+        )
 
         r = int(
             color1[0] * (1 - factor)
@@ -205,18 +365,28 @@ def crear_gradiente(color1, color2):
         )
 
         for x in range(ANCHO):
-            pixeles[x, y] = (r, g, b)
+            pixeles[x, y] = (
+                r,
+                g,
+                b
+            )
 
     return imagen
 
 
-def dibujar_fondo(imagen, estilo="normal", frame=0):
+def dibujar_fondo(
+    imagen,
+    estilo="normal",
+    frame=0
+):
     colores = COLORES_FONDO.get(
         estilo,
         COLORES_FONDO["normal"]
     )
 
-    fondo = crear_gradiente(*colores)
+    fondo = crear_gradiente(
+        *colores
+    )
 
     overlay = Image.new(
         "RGBA",
@@ -224,22 +394,25 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
         (0, 0, 0, 0)
     )
 
-    draw = ImageDraw.Draw(overlay)
+    draw = ImageDraw.Draw(
+        overlay
+    )
 
-    # Decoración abstracta.
+    # Brillo superior derecho.
     draw.ellipse(
         (
             1250,
-            -250,
-            2050,
+            -300,
+            2100,
             550
         ),
-        fill=(255, 255, 255, 12)
+        fill=(255, 255, 255, 10)
     )
 
+    # Sombra inferior.
     draw.ellipse(
         (
-            -300,
+            -350,
             700,
             600,
             1450
@@ -247,8 +420,9 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
         fill=(0, 0, 0, 25)
     )
 
-    # Viñeta.
-    for i in range(18):
+    # Marco exterior.
+    for i in range(16):
+
         margen = i * 10
 
         draw.rectangle(
@@ -258,7 +432,12 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
                 ANCHO - margen,
                 ALTO - margen
             ),
-            outline=(0, 0, 0, 4 + i * 2),
+            outline=(
+                0,
+                0,
+                0,
+                5 + i * 2
+            ),
             width=5
         )
 
@@ -277,39 +456,62 @@ def dibujar_fondo(imagen, estilo="normal", frame=0):
 # AVATAR
 # ============================================================
 
-def redimensionar_avatar(avatar, tamano):
+def redimensionar_avatar(
+    avatar,
+    tamano
+):
     if avatar is None:
         return None
 
-    avatar = avatar.convert("RGBA")
+    avatar = avatar.convert(
+        "RGBA"
+    )
 
     return avatar.resize(
-        (tamano, tamano),
+        (
+            tamano,
+            tamano
+        ),
         Image.Resampling.LANCZOS
     )
 
 
-def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
+def crear_avatar_iniciales(
+    nombre,
+    tamano=TAM_AVATAR
+):
     imagen = Image.new(
         "RGBA",
-        (tamano, tamano),
+        (
+            tamano,
+            tamano
+        ),
         (35, 40, 55, 255)
     )
 
-    draw = ImageDraw.Draw(imagen)
+    draw = ImageDraw.Draw(
+        imagen
+    )
 
-    nombre = str(nombre or "?").strip()
+    nombre = str(
+        nombre or "?"
+    ).strip()
 
     partes = nombre.split()
 
     if len(partes) >= 2:
+
         iniciales = (
             partes[0][0]
             + partes[1][0]
         ).upper()
+
     elif nombre:
+
         iniciales = nombre[:2].upper()
+
     else:
+
         iniciales = "?"
 
     fuente = cargar_fuente(
@@ -323,18 +525,19 @@ def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
         font=fuente
     )
 
-    x = (
-        tamano
-        - (bbox[2] - bbox[0])
-    ) // 2
+    ancho = (
+        bbox[2] - bbox[0]
+    )
 
-    y = (
-        tamano
-        - (bbox[3] - bbox[1])
-    ) // 2 - 10
+    alto = (
+        bbox[3] - bbox[1]
+    )
 
     draw.text(
-        (x, y),
+        (
+            (tamano - ancho) / 2,
+            (tamano - alto) / 2 - 10
+        ),
         iniciales,
         font=fuente,
         fill=(240, 240, 245, 255)
@@ -343,7 +546,10 @@ def crear_avatar_iniciales(nombre, tamano=TAM_AVATAR):
     return imagen
 
 
-def recortar_circulo(imagen, tamano):
+def recortar_circulo(
+    imagen,
+    tamano
+):
     imagen = redimensionar_avatar(
         imagen,
         tamano
@@ -354,20 +560,33 @@ def recortar_circulo(imagen, tamano):
 
     mascara = Image.new(
         "L",
-        (tamano, tamano),
+        (
+            tamano,
+            tamano
+        ),
         0
     )
 
-    draw = ImageDraw.Draw(mascara)
+    draw = ImageDraw.Draw(
+        mascara
+    )
 
     draw.ellipse(
-        (0, 0, tamano - 1, tamano - 1),
+        (
+            0,
+            0,
+            tamano - 1,
+            tamano - 1
+        ),
         fill=255
     )
 
     resultado = Image.new(
         "RGBA",
-        (tamano, tamano),
+        (
+            tamano,
+            tamano
+        ),
         (0, 0, 0, 0)
     )
 
@@ -380,7 +599,13 @@ def recortar_circulo(imagen, tamano):
     return resultado
 
 
-def dibujar_avatar(imagen, avatar, x, y, tamano):
+def dibujar_avatar(
+    imagen,
+    avatar,
+    x,
+    y,
+    tamano
+):
     avatar = recortar_circulo(
         avatar,
         tamano
@@ -395,14 +620,16 @@ def dibujar_avatar(imagen, avatar, x, y, tamano):
         (0, 0, 0, 0)
     )
 
-    draw = ImageDraw.Draw(overlay)
+    draw = ImageDraw.Draw(
+        overlay
+    )
 
     draw.ellipse(
         (
-            x - 12,
-            y - 12,
-            x + tamano + 12,
-            y + tamano + 12
+            x - 14,
+            y - 14,
+            x + tamano + 14,
+            y + tamano + 14
         ),
         outline=(255, 255, 255, 190),
         width=10
@@ -426,15 +653,24 @@ def _pais_codigo(pais):
     if not pais:
         return None
 
-    valor = str(pais).strip().lower()
+    valor = str(
+        pais
+    ).strip().lower()
 
     for codigo, datos in PAISES.items():
+
         nombre = str(
-            datos.get("nombre", "")
+            datos.get(
+                "nombre",
+                ""
+            )
         ).lower()
 
         bandera = str(
-            datos.get("bandera", "")
+            datos.get(
+                "bandera",
+                ""
+            )
         )
 
         if valor == codigo.lower():
@@ -446,7 +682,10 @@ def _pais_codigo(pais):
         if bandera and bandera in str(pais):
             return codigo
 
-        if nombre and nombre in valor:
+        if (
+            nombre
+            and nombre in valor
+        ):
             return codigo
 
     return None
@@ -462,6 +701,7 @@ def _dibujar_estrella(
     puntos = []
 
     for i in range(10):
+
         angulo = (
             -math.pi / 2
             + i * math.pi / 5
@@ -491,15 +731,20 @@ def dibujar_bandera(
     pais,
     x,
     y,
-    ancho=82,
-    alto=52
+    ancho=FLAG_W,
+    alto=FLAG_H
 ):
-    codigo = _pais_codigo(pais)
+    codigo = _pais_codigo(
+        pais
+    )
 
     if not codigo:
         return
 
-    # Cuba dibujada manualmente.
+    # ========================================================
+    # CUBA
+    # ========================================================
+
     if codigo == "cuba":
 
         draw.rectangle(
@@ -515,7 +760,9 @@ def dibujar_bandera(
         h = alto / 5
 
         for i in range(5):
+
             if i % 2 == 0:
+
                 draw.rectangle(
                     (
                         x,
@@ -533,7 +780,10 @@ def dibujar_bandera(
                     x + ancho * 0.48,
                     y + alto / 2
                 ),
-                (x, y + alto)
+                (
+                    x,
+                    y + alto
+                )
             ],
             fill=(210, 35, 45)
         )
@@ -559,7 +809,10 @@ def dibujar_bandera(
 
         return
 
-    # Para otros países se usa la bandera almacenada.
+    # ========================================================
+    # OTROS PAÍSES
+    # ========================================================
+
     datos = PAISES.get(
         codigo,
         {}
@@ -584,8 +837,9 @@ def dibujar_bandera(
     )
 
     if bandera:
-        fuente = cargar_fuente(
-            34
+
+        fuente = cargar_fuente_emoji(
+            38
         )
 
         draw.text(
@@ -637,6 +891,12 @@ def _dibujar_corazon(
     y,
     tamano=80
 ):
+    color = (
+        255,
+        70,
+        100
+    )
+
     draw.ellipse(
         (
             x,
@@ -644,7 +904,7 @@ def _dibujar_corazon(
             x + tamano / 2,
             y + tamano / 2
         ),
-        fill=(255, 70, 100)
+        fill=color
     )
 
     draw.ellipse(
@@ -654,7 +914,7 @@ def _dibujar_corazon(
             x + tamano,
             y + tamano / 2
         ),
-        fill=(255, 70, 100)
+        fill=color
     )
 
     draw.polygon(
@@ -672,7 +932,7 @@ def _dibujar_corazon(
                 y + tamano
             )
         ],
-        fill=(255, 70, 100)
+        fill=color
     )
 
 
@@ -682,7 +942,11 @@ def _dibujar_mariposa(
     y,
     tamano=80
 ):
-    color = (180, 100, 255)
+    color = (
+        180,
+        100,
+        255
+    )
 
     draw.ellipse(
         (
@@ -722,12 +986,19 @@ def _dibujar_corona(
     tamano=80
 ):
     if x is None:
-        x = ANCHO // 2 - tamano // 2
+        x = (
+            ANCHO // 2
+            - tamano // 2
+        )
 
     if y is None:
         y = 40
 
-    color = (255, 210, 60)
+    color = (
+        255,
+        210,
+        60
+    )
 
     puntos = [
         (x, y + tamano),
@@ -746,7 +1017,7 @@ def _dibujar_corona(
         (
             x + tamano,
             y + tamano
-        ),
+        )
     ]
 
     draw.polygon(
@@ -788,9 +1059,7 @@ def _dibujar_accesorio(
         _dibujar_corazon(
             draw,
             ANCHO - 250,
-            80 + int(
-                math.sin(frame * 0.5) * 10
-            ),
+            80,
             75
         )
 
@@ -799,9 +1068,7 @@ def _dibujar_accesorio(
         _dibujar_mariposa(
             draw,
             ANCHO - 260,
-            120 + int(
-                math.sin(frame * 0.5) * 15
-            ),
+            120,
             80
         )
 
@@ -815,6 +1082,35 @@ def dibujar_efecto(
         draw,
         efecto,
         frame
+    )
+
+
+# ============================================================
+# ICONO DE NIVEL
+# ============================================================
+
+def dibujar_icono_rango(
+    draw,
+    x,
+    y,
+    tamano=58
+):
+    draw.ellipse(
+        (
+            x,
+            y,
+            x + tamano,
+            y + tamano
+        ),
+        fill=(255, 205, 70)
+    )
+
+    _dibujar_estrella(
+        draw,
+        x + tamano / 2,
+        y + tamano / 2,
+        tamano * 0.36,
+        (70, 55, 15)
     )
 
 
@@ -855,7 +1151,10 @@ def dibujar_experiencia(
         min(100, porcentaje)
     )
 
+    # ========================================================
     # NIVEL
+    # ========================================================
+
     dibujar_icono_rango(
         draw,
         X_CONTENIDO,
@@ -879,7 +1178,10 @@ def dibujar_experiencia(
         fill=(255, 255, 255)
     )
 
+    # ========================================================
     # XP
+    # ========================================================
+
     fuente_xp = cargar_fuente(
         FONT_XP,
         negrita=True
@@ -899,11 +1201,14 @@ def dibujar_experiencia(
         fill=(235, 240, 250)
     )
 
+    # ========================================================
     # BARRA
+    # ========================================================
+
     BAR_X = X_CONTENIDO
     BAR_Y = Y_BARRA
     BAR_W = 1120
-    BAR_H = 52
+    BAR_H = 54
 
     draw.rounded_rectangle(
         (
@@ -913,16 +1218,19 @@ def dibujar_experiencia(
             BAR_Y + BAR_H
         ),
         radius=BAR_H // 2,
-        fill=(15, 18, 28),
-        outline=(120, 130, 150),
+        fill=(12, 16, 25),
+        outline=(130, 140, 160),
         width=3
     )
 
     progreso_w = int(
-        BAR_W * porcentaje / 100
+        BAR_W
+        * porcentaje
+        / 100
     )
 
     if progreso_w > 0:
+
         draw.rounded_rectangle(
             (
                 BAR_X,
@@ -934,7 +1242,10 @@ def dibujar_experiencia(
             fill=(70, 190, 255)
         )
 
+    # ========================================================
     # PORCENTAJE
+    # ========================================================
+
     fuente_porcentaje = cargar_fuente(
         FONT_PORCENTAJE,
         negrita=True
@@ -951,8 +1262,12 @@ def dibujar_experiencia(
         fill=(255, 255, 255)
     )
 
+    # ========================================================
     # RANGO
+    # ========================================================
+
     if rango:
+
         fuente_rango = cargar_fuente(
             FONT_RANGO,
             negrita=True
@@ -968,35 +1283,6 @@ def dibujar_experiencia(
             anchor="lm",
             fill=(255, 210, 90)
         )
-
-
-# ============================================================
-# ICONOS
-# ============================================================
-
-def dibujar_icono_rango(
-    draw,
-    x,
-    y,
-    tamano=54
-):
-    draw.ellipse(
-        (
-            x,
-            y,
-            x + tamano,
-            y + tamano
-        ),
-        fill=(255, 205, 70)
-    )
-
-    _dibujar_estrella(
-        draw,
-        x + tamano / 2,
-        y + tamano / 2,
-        tamano * 0.36,
-        (70, 55, 15)
-    )
 
 
 # ============================================================
@@ -1021,9 +1307,16 @@ def generar_perfil(
     propietario=False,
     tokens=None,
 ):
+    # ========================================================
+    # FONDO
+    # ========================================================
+
     imagen = Image.new(
         "RGB",
-        (ANCHO, ALTO),
+        (
+            ANCHO,
+            ALTO
+        ),
         (20, 25, 40)
     )
 
@@ -1039,6 +1332,10 @@ def generar_perfil(
     draw = ImageDraw.Draw(
         imagen
     )
+
+    # ========================================================
+    # EQUIPADOS
+    # ========================================================
 
     equipados_lista = normalizar_equipados(
         equipados
@@ -1071,12 +1368,19 @@ def generar_perfil(
     marco_real = marco or "normal"
 
     for producto in equipados_lista:
-        pid = _producto_id(producto)
 
-        if pid in ALIASES_PRODUCTOS:
-            posible = ALIASES_PRODUCTOS[pid]
+        pid = _producto_id(
+            producto
+        )
 
-            if pid.startswith("marco_"):
+        if pid.startswith(
+            "marco_"
+        ):
+            posible = ALIASES_PRODUCTOS.get(
+                pid
+            )
+
+            if posible:
                 marco_real = posible
 
     dibujar_marco(
@@ -1096,6 +1400,25 @@ def generar_perfil(
         COLORES_NOMBRE["blanco"]
     )
 
+    # Detectar color comprado.
+    for producto in equipados_lista:
+
+        pid = _producto_id(
+            producto
+        )
+
+        if pid.startswith(
+            "nombre_"
+        ):
+            color_real = ALIASES_PRODUCTOS.get(
+                pid
+            )
+
+            if color_real in COLORES_NOMBRE:
+                color_nombre = COLORES_NOMBRE[
+                    color_real
+                ]
+
     fuente_nombre = cargar_fuente(
         FONT_NOMBRE,
         negrita=True
@@ -1105,7 +1428,7 @@ def generar_perfil(
         draw,
         str(nombre).upper(),
         fuente_nombre,
-        1270
+        1280
     )
 
     draw.text(
@@ -1115,12 +1438,12 @@ def generar_perfil(
         ),
         nombre_mostrado,
         font=fuente_nombre,
-        fill=color_nombre,
-        anchor="lm"
+        anchor="lm",
+        fill=color_nombre
     )
 
     # ========================================================
-    # PAÍS
+    # PAÍS + BANDERA
     # ========================================================
 
     codigo_pais = _pais_codigo(
@@ -1130,6 +1453,7 @@ def generar_perfil(
     nombre_pais = ""
 
     if codigo_pais:
+
         datos_pais = PAISES.get(
             codigo_pais,
             {}
@@ -1141,13 +1465,14 @@ def generar_perfil(
         )
 
     if nombre_pais:
+
         dibujar_bandera(
             draw,
             pais,
             X_CONTENIDO,
-            Y_PAIS - 26,
-            82,
-            52
+            Y_PAIS - FLAG_H // 2,
+            FLAG_W,
+            FLAG_H
         )
 
         fuente_pais = cargar_fuente(
@@ -1158,7 +1483,7 @@ def generar_perfil(
         draw.text(
             (
                 X_CONTENIDO + 105,
-                Y_PAIS,
+                Y_PAIS
             ),
             nombre_pais,
             font=fuente_pais,
@@ -1167,71 +1492,84 @@ def generar_perfil(
         )
 
     # ========================================================
-    # IDENTIFICACIÓN
+    # INFORMACIÓN
     # ========================================================
 
-    fuente_info = cargar_fuente(
-        FONT_INFO,
+    fuente_id = cargar_fuente(
+        FONT_ID,
         negrita=True
     )
 
-    info_y = Y_INFO
-
     if id_interno is not None:
+
         draw.text(
             (
                 X_CONTENIDO,
-                info_y
+                Y_ID
             ),
             f"ID INTERNO   #{id_interno}",
-            font=fuente_info,
+            font=fuente_id,
             anchor="lm",
             fill=(225, 230, 240)
         )
-
-        info_y += 55
 
     if bot_id is not None:
+
         draw.text(
             (
                 X_CONTENIDO,
-                info_y
+                Y_BOT_ID
             ),
             f"ID DEL BOT   {bot_id}",
-            font=fuente_info,
+            font=fuente_id,
             anchor="lm",
             fill=(225, 230, 240)
         )
 
-        info_y += 55
+    # ========================================================
+    # TELEGRAM ID
+    # SOLO PROPIETARIO
+    # ========================================================
 
-    if propietario and telegram_id is not None:
+    if (
+        propietario
+        and telegram_id is not None
+    ):
+
         draw.text(
             (
                 X_CONTENIDO,
-                info_y
+                Y_TELEGRAM_ID
             ),
             f"TELEGRAM ID   {telegram_id}",
-            font=fuente_info,
+            font=fuente_id,
             anchor="lm",
             fill=(255, 220, 120)
         )
 
-        info_y += 55
+    # ========================================================
+    # TOKENS
+    # ========================================================
 
     if tokens is not None:
+
         try:
-            tokens_texto = f"{int(tokens):,}"
+            tokens_texto = (
+                f"{int(tokens):,}"
+            )
         except Exception:
             tokens_texto = str(tokens)
 
         draw.text(
             (
                 X_CONTENIDO,
-                info_y
+                Y_TOKENS
             ),
             f"TOKENS   {tokens_texto}",
-            font=fuente_info,
+            font=cargar_fuente(
+                FONT_TOKENS,
+                negrita=True
+            ),
             anchor="lm",
             fill=(255, 215, 90)
         )
@@ -1241,11 +1579,11 @@ def generar_perfil(
     # ========================================================
 
     for accesorio in equipados_lista:
-        pid = _producto_id(accesorio)
 
-        # Los colores de nombre siguen siendo colores.
-        # Los marcos siguen siendo marcos.
-        # Los accesorios visuales se dibujan como accesorios.
+        pid = _producto_id(
+            accesorio
+        )
+
         if (
             pid.startswith("nombre_")
             or pid.startswith("marco_")
@@ -1271,31 +1609,33 @@ def generar_perfil(
     )
 
     # ========================================================
-    # DETALLES VISUALES
+    # LÍNEA DECORATIVA
     # ========================================================
 
-    # Línea divisoria.
     draw.line(
         (
             X_CONTENIDO,
-            440,
+            535,
             ANCHO - 120,
-            440
+            535
         ),
-        fill=(255, 255, 255, 35),
+        fill=(255, 255, 255, 40),
         width=2
     )
 
     # ========================================================
-    # EXPORTACIÓN
+    # EXPORTAR
     # ========================================================
 
     salida = io.BytesIO()
 
-    imagen.convert("RGB").save(
+    imagen.convert(
+        "RGB"
+    ).save(
         salida,
         format="PNG",
-        optimize=True
+        optimize=True,
+        compress_level=1
     )
 
     salida.seek(0)
@@ -1304,4 +1644,4 @@ def generar_perfil(
         salida.getvalue(),
         "image/png",
         False
-    )
+)

@@ -1,5 +1,6 @@
 import io
 import math
+import random
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -7,7 +8,7 @@ from core.paises import PAISES
 
 
 # ============================================================
-# TAMAÑO DEL PERFIL
+# TAMAÑO
 # ============================================================
 
 ANCHO = 1920
@@ -15,7 +16,7 @@ ALTO = 1080
 
 
 # ============================================================
-# FUENTES
+# FUENTES DEL SISTEMA
 # ============================================================
 
 FUENTES_NORMAL = [
@@ -47,7 +48,7 @@ def cargar_fuente(tamano, negrita=False):
 
     try:
         return ImageFont.load_default(
-            size=32
+            size=max(16, int(tamano))
         )
     except Exception:
         return ImageFont.load_default()
@@ -91,16 +92,18 @@ Y_RANGO = 915
 
 
 # ============================================================
-# COLORES DE NOMBRE
+# COLORES DEL NOMBRE
 # ============================================================
 
 COLORES_NOMBRE = {
     "blanco": (255, 255, 255),
+    "dorado": (255, 210, 60),
+    "amarillo": (255, 220, 60),
     "rojo": (255, 70, 70),
     "azul": (70, 160, 255),
     "verde": (70, 225, 110),
-    "amarillo": (255, 220, 60),
     "morado": (190, 90, 255),
+    "violeta": (190, 90, 255),
     "rosa": (255, 100, 190),
     "cian": (70, 230, 255),
     "naranja": (255, 145, 55),
@@ -109,11 +112,12 @@ COLORES_NOMBRE = {
 
 
 # ============================================================
-# COLORES DE MARCOS
+# MARCOS
 # ============================================================
 
 COLORES_MARCO = {
     "normal": (100, 110, 130),
+    "dorado": (255, 205, 55),
     "oro": (255, 205, 55),
     "plata": (205, 215, 230),
     "diamante": (90, 220, 255),
@@ -125,6 +129,14 @@ COLORES_MARCO = {
     "cian": (70, 230, 255),
     "naranja": (255, 145, 55),
     "esmeralda": (40, 230, 145),
+    "rubi": (225, 40, 55),
+    "ametista": (170, 90, 255),
+    "glacial": (130, 225, 255),
+    "neon": (50, 255, 220),
+    "cyber": (60, 220, 255),
+    "dark": (25, 25, 35),
+    "arcano": (170, 80, 255),
+    "samurai": (190, 45, 45),
 }
 
 
@@ -191,16 +203,18 @@ COLORES_FONDO = {
 
 
 # ============================================================
-# ALIAS
+# PRODUCTOS
 # ============================================================
 
 COLORES = (
     "blanco",
+    "dorado",
+    "amarillo",
     "rojo",
     "azul",
     "verde",
-    "amarillo",
     "morado",
+    "violeta",
     "rosa",
     "cian",
     "naranja",
@@ -209,11 +223,16 @@ COLORES = (
 
 FONDOS = (
     "normal",
+    "noche",
+    "nebulosa",
+    "cyber",
+    "rosa",
+    "floresta",
+    "abismo",
     "azul",
     "rojo",
     "verde",
     "morado",
-    "rosa",
     "cian",
     "naranja",
     "esmeralda",
@@ -223,22 +242,30 @@ FONDOS = (
 
 MARCOS = (
     "normal",
+    "dorado",
     "oro",
     "plata",
     "diamante",
-    "rojo",
-    "azul",
-    "verde",
-    "morado",
-    "rosa",
-    "cian",
-    "naranja",
+    "real",
+    "glacial",
+    "cosmico",
+    "rosa_cristal",
+    "corazones",
+    "floral",
+    "mariposas",
+    "neon",
+    "cyber",
+    "samurai",
+    "dark",
+    "arcano",
     "esmeralda",
+    "rubi",
+    "ametista",
 )
 
 
 # ============================================================
-# PRODUCTOS
+# PRODUCTO ID
 # ============================================================
 
 def _producto_id(producto):
@@ -265,10 +292,11 @@ def _producto_id(producto):
 
         for clave in claves:
 
-            valor = producto.get(clave)
+            valor = producto.get(
+                clave
+            )
 
             if valor is not None:
-
                 valores.append(
                     str(valor)
                 )
@@ -284,6 +312,7 @@ def _producto_id(producto):
 
 
 def normalizar_equipados(equipados):
+
     if equipados is None:
         return []
 
@@ -301,23 +330,30 @@ def normalizar_equipados(equipados):
                 (list, tuple, set)
             ):
 
-                for elemento in valor:
-                    resultado.append(elemento)
+                resultado.extend(
+                    valor
+                )
 
             elif isinstance(
                 valor,
                 dict
             ):
 
-                resultado.append(valor)
+                resultado.append(
+                    valor
+                )
 
             elif valor:
 
-                resultado.append(valor)
+                resultado.append(
+                    valor
+                )
 
             else:
 
-                resultado.append(clave)
+                resultado.append(
+                    clave
+                )
 
         return resultado
 
@@ -325,16 +361,23 @@ def normalizar_equipados(equipados):
         equipados,
         (list, tuple, set)
     ):
-        return list(equipados)
 
-    return [equipados]
+        return list(
+            equipados
+        )
+
+    return [
+        equipados
+    ]
 
 
 # ============================================================
-# DETECCIÓN DE COSMÉTICOS
+# DETECTAR COLOR
 # ============================================================
 
-def detectar_color_nombre(equipados):
+def detectar_color_nombre(
+    equipados
+):
     resultado = None
 
     for producto in equipados:
@@ -346,54 +389,56 @@ def detectar_color_nombre(equipados):
         if not texto:
             continue
 
-        # Debe ser un producto de nombre/color
-        # o contener explícitamente un color.
-        es_color = any(
-            palabra in texto
-            for palabra in (
-                "nombre",
-                "color",
-                "namecolor",
-                "name_color",
-            )
-        )
+        if (
+            "color_" in texto
+            or "nombre_" in texto
+            or "nombre " in texto
+            or "color " in texto
+        ):
 
-        if es_color:
+            if "dorado" in texto:
+                resultado = "dorado"
 
-            for color in COLORES:
+            elif "rosa" in texto:
+                resultado = "rosa"
 
-                if color in texto:
-                    resultado = color
+            elif "cian" in texto:
+                resultado = "cian"
 
-        # Compatibilidad con productos antiguos
-        # que solamente se llamaban "esmeralda",
-        # "rojo", etc.
-        if not es_color:
+            elif "rojo" in texto:
+                resultado = "rojo"
 
-            palabras_exclusivas = (
-                "marco",
-                "fondo",
-                "efecto",
-                "corona",
-                "corazon",
-                "mariposa",
-                "insignia",
-            )
+            elif "violeta" in texto:
+                resultado = "violeta"
 
-            if not any(
-                p in texto
-                for p in palabras_exclusivas
-            ):
+            elif "esmeralda" in texto:
+                resultado = "esmeralda"
 
-                for color in COLORES:
+            elif "azul" in texto:
+                resultado = "azul"
 
-                    if texto == color:
-                        resultado = color
+            elif "verde" in texto:
+                resultado = "verde"
+
+            elif "morado" in texto:
+                resultado = "morado"
+
+            elif "naranja" in texto:
+                resultado = "naranja"
+
+            elif "amarillo" in texto:
+                resultado = "amarillo"
 
     return resultado or "blanco"
 
 
-def detectar_marco(equipados):
+# ============================================================
+# DETECTAR MARCO
+# ============================================================
+
+def detectar_marco(
+    equipados
+):
     resultado = "normal"
 
     for producto in equipados:
@@ -406,19 +451,74 @@ def detectar_marco(equipados):
             continue
 
         if (
-            "marco" in texto
-            or "frame" in texto
+            "marco_" not in texto
+            and "marco " not in texto
+            and "frame" not in texto
+            and "anim_" not in texto
         ):
+            continue
 
-            for marco in MARCOS:
+        if "dorado" in texto:
+            resultado = "dorado"
 
-                if marco in texto:
-                    resultado = marco
+        elif "diamante" in texto:
+            resultado = "diamante"
+
+        elif "real" in texto:
+            resultado = "real"
+
+        elif "glacial" in texto:
+            resultado = "glacial"
+
+        elif "cosmico" in texto:
+            resultado = "cosmico"
+
+        elif "rosa_cristal" in texto:
+            resultado = "rosa_cristal"
+
+        elif "corazones" in texto:
+            resultado = "corazones"
+
+        elif "floral" in texto:
+            resultado = "floral"
+
+        elif "mariposas" in texto:
+            resultado = "mariposas"
+
+        elif "neon" in texto:
+            resultado = "neon"
+
+        elif "cyber" in texto:
+            resultado = "cyber"
+
+        elif "samurai" in texto:
+            resultado = "samurai"
+
+        elif "dark" in texto:
+            resultado = "dark"
+
+        elif "arcano" in texto:
+            resultado = "arcano"
+
+        elif "esmeralda" in texto:
+            resultado = "esmeralda"
+
+        elif "rubi" in texto:
+            resultado = "rubi"
+
+        elif "ametista" in texto:
+            resultado = "ametista"
 
     return resultado
 
 
-def detectar_fondo(equipados):
+# ============================================================
+# DETECTAR FONDO
+# ============================================================
+
+def detectar_fondo(
+    equipados
+):
     resultado = "normal"
 
     for producto in equipados:
@@ -431,16 +531,29 @@ def detectar_fondo(equipados):
             continue
 
         if (
-            "fondo" in texto
-            or "background" in texto
-            or "bg_" in texto
-            or "estilo_fondo" in texto
+            "fondo_" not in texto
+            and "fondo " not in texto
+            and "background" not in texto
         ):
+            continue
 
-            for fondo in FONDOS:
+        if "noche" in texto:
+            resultado = "noche"
 
-                if fondo in texto:
-                    resultado = fondo
+        elif "nebulosa" in texto:
+            resultado = "nebulosa"
+
+        elif "cyber" in texto:
+            resultado = "cyber"
+
+        elif "rosa" in texto:
+            resultado = "rosa"
+
+        elif "floresta" in texto:
+            resultado = "floresta"
+
+        elif "abismo" in texto:
+            resultado = "abismo"
 
     return resultado
 
@@ -493,7 +606,7 @@ def texto_ajustado(
 
 
 # ============================================================
-# FONDO
+# GRADIENTE
 # ============================================================
 
 def crear_gradiente(
@@ -535,7 +648,6 @@ def crear_gradiente(
         )
 
         for x in range(ANCHO):
-
             pixeles[x, y] = (
                 r,
                 g,
@@ -544,6 +656,10 @@ def crear_gradiente(
 
     return imagen
 
+
+# ============================================================
+# FONDO BASE
+# ============================================================
 
 def dibujar_fondo(
     imagen,
@@ -572,7 +688,7 @@ def dibujar_fondo(
         overlay
     )
 
-    # Brillo superior derecho.
+    # Brillo.
     draw.ellipse(
         (
             1250,
@@ -580,10 +696,14 @@ def dibujar_fondo(
             2150,
             600
         ),
-        fill=(255, 255, 255, 13)
+        fill=(
+            255,
+            255,
+            255,
+            13
+        )
     )
 
-    # Decoración inferior izquierda.
     draw.ellipse(
         (
             -400,
@@ -591,8 +711,188 @@ def dibujar_fondo(
             650,
             1500
         ),
-        fill=(0, 0, 0, 30)
+        fill=(
+            0,
+            0,
+            0,
+            30
+        )
     )
+
+    # --------------------------------------------------------
+    # FONDOS ESPECIALES
+    # --------------------------------------------------------
+
+    if estilo == "noche":
+
+        random.seed(100)
+
+        for _ in range(90):
+
+            x = random.randint(
+                0,
+                ANCHO
+            )
+
+            y = random.randint(
+                0,
+                ALTO
+            )
+
+            r = random.choice(
+                (2, 3, 4)
+            )
+
+            draw.ellipse(
+                (
+                    x - r,
+                    y - r,
+                    x + r,
+                    y + r
+                ),
+                fill=(
+                    255,
+                    255,
+                    255,
+                    random.randint(
+                        80,
+                        220
+                    )
+                )
+            )
+
+    elif estilo == "nebulosa":
+
+        draw.ellipse(
+            (
+                700,
+                -100,
+                1700,
+                900
+            ),
+            fill=(
+                170,
+                60,
+                255,
+                35
+            )
+        )
+
+        draw.ellipse(
+            (
+                1000,
+                250,
+                1900,
+                1100
+            ),
+            fill=(
+                40,
+                140,
+                255,
+                28
+            )
+        )
+
+    elif estilo == "cyber":
+
+        for i in range(
+            -ALTO,
+            ANCHO,
+            80
+        ):
+
+            draw.line(
+                (
+                    i,
+                    ALTO,
+                    i + ALTO,
+                    0
+                ),
+                fill=(
+                    0,
+                    220,
+                    255,
+                    18
+                ),
+                width=3
+            )
+
+        for y in range(
+            650,
+            ALTO,
+            60
+        ):
+
+            draw.line(
+                (
+                    0,
+                    y,
+                    ANCHO,
+                    y
+                ),
+                fill=(
+                    0,
+                    220,
+                    255,
+                    14
+                ),
+                width=2
+            )
+
+    elif estilo == "floresta":
+
+        random.seed(300)
+
+        for _ in range(45):
+
+            x = random.randint(
+                0,
+                ANCHO
+            )
+
+            y = random.randint(
+                0,
+                ALTO
+            )
+
+            r = random.randint(
+                15,
+                45
+            )
+
+            draw.ellipse(
+                (
+                    x - r,
+                    y - r,
+                    x + r,
+                    y + r
+                ),
+                outline=(
+                    100,
+                    255,
+                    150,
+                    25
+                ),
+                width=3
+            )
+
+    elif estilo == "abismo":
+
+        draw.ellipse(
+            (
+                850,
+                100,
+                1800,
+                1050
+            ),
+            outline=(
+                170,
+                80,
+                255,
+                30
+            ),
+            width=40
+        )
 
     # Líneas decorativas.
     for i in range(7):
@@ -606,11 +906,15 @@ def dibujar_fondo(
                 1350 + offset,
                 0
             ),
-            fill=(255, 255, 255, 13),
+            fill=(
+                255,
+                255,
+                255,
+                13
+            ),
             width=4
         )
 
-    # Borde.
     draw.rounded_rectangle(
         (
             8,
@@ -619,7 +923,12 @@ def dibujar_fondo(
             ALTO - 8
         ),
         radius=25,
-        outline=(130, 145, 175, 80),
+        outline=(
+            130,
+            145,
+            175,
+            80
+        ),
         width=3
     )
 
@@ -648,7 +957,12 @@ def crear_avatar_iniciales(
             tamano,
             tamano
         ),
-        (35, 40, 55, 255)
+        (
+            35,
+            40,
+            55,
+            255
+        )
     )
 
     draw = ImageDraw.Draw(
@@ -697,7 +1011,12 @@ def crear_avatar_iniciales(
         ),
         iniciales,
         font=fuente,
-        fill=(240, 240, 245, 255)
+        fill=(
+            240,
+            240,
+            245,
+            255
+        )
     )
 
     return imagen
@@ -751,7 +1070,12 @@ def recortar_circulo(
             tamano,
             tamano
         ),
-        (0, 0, 0, 0)
+        (
+            0,
+            0,
+            0,
+            0
+        )
     )
 
     resultado.paste(
@@ -864,7 +1188,11 @@ def dibujar_bandera(
                 x + ancho,
                 y + alto
             ),
-            fill=(255, 255, 255)
+            fill=(
+                255,
+                255,
+                255
+            )
         )
 
         h = alto / 5
@@ -880,7 +1208,11 @@ def dibujar_bandera(
                         x + ancho,
                         y + (i + 1) * h
                     ),
-                    fill=(35, 90, 175)
+                    fill=(
+                        35,
+                        90,
+                        175
+                    )
                 )
 
         draw.polygon(
@@ -895,15 +1227,26 @@ def dibujar_bandera(
                     y + alto
                 )
             ],
-            fill=(215, 40, 50)
+            fill=(
+                215,
+                40,
+                50
+            )
         )
 
-        # Estrella.
-        puntos = []
+        cx = (
+            x
+            + ancho * 0.17
+        )
 
-        cx = x + ancho * 0.17
-        cy = y + alto / 2
+        cy = (
+            y
+            + alto / 2
+        )
+
         radio = alto * 0.18
+
+        puntos = []
 
         for i in range(10):
 
@@ -927,7 +1270,11 @@ def dibujar_bandera(
 
         draw.polygon(
             puntos,
-            fill=(255, 255, 255)
+            fill=(
+                255,
+                255,
+                255
+            )
         )
 
         draw.rectangle(
@@ -937,7 +1284,11 @@ def dibujar_bandera(
                 x + ancho,
                 y + alto
             ),
-            outline=(255, 255, 255),
+            outline=(
+                255,
+                255,
+                255
+            ),
             width=3
         )
 
@@ -959,11 +1310,6 @@ def dibujar_bandera(
         )
     )
 
-    # Intentar dibujar el emoji.
-    fuente = cargar_fuente(
-        40
-    )
-
     draw.rounded_rectangle(
         (
             x,
@@ -972,12 +1318,24 @@ def dibujar_bandera(
             y + alto
         ),
         radius=7,
-        fill=(40, 45, 60),
-        outline=(220, 225, 235),
+        fill=(
+            40,
+            45,
+            60
+        ),
+        outline=(
+            220,
+            225,
+            235
+        ),
         width=2
     )
 
     if bandera:
+
+        fuente = cargar_fuente(
+            38
+        )
 
         draw.text(
             (
@@ -991,7 +1349,7 @@ def dibujar_bandera(
 
 
 # ============================================================
-# MARCO
+# MARCOS
 # ============================================================
 
 def dibujar_marco(
@@ -1006,7 +1364,499 @@ def dibujar_marco(
         COLORES_MARCO["normal"]
     )
 
-    # Anillo exterior.
+    # Marco normal.
+    if tipo == "normal":
+
+        draw.ellipse(
+            (
+                x - 18,
+                y - 18,
+                x + tamano + 18,
+                y + tamano + 18
+            ),
+            outline=color,
+            width=10
+        )
+
+        return
+
+    # ========================================================
+    # DIAMANTE
+    # ========================================================
+
+    if tipo == "diamante":
+
+        draw.ellipse(
+            (
+                x - 20,
+                y - 20,
+                x + tamano + 20,
+                y + tamano + 20
+            ),
+            outline=color,
+            width=16
+        )
+
+        draw.ellipse(
+            (
+                x - 8,
+                y - 8,
+                x + tamano + 8,
+                y + tamano + 8
+            ),
+            outline=(210, 250, 255),
+            width=4
+        )
+
+        return
+
+    # ========================================================
+    # GLACIAL
+    # ========================================================
+
+    if tipo == "glacial":
+
+        for grosor in (
+            24,
+            12,
+            4
+        ):
+
+            draw.ellipse(
+                (
+                    x - grosor,
+                    y - grosor,
+                    x + tamano + grosor,
+                    y + tamano + grosor
+                ),
+                outline=(
+                    100,
+                    220,
+                    255
+                ),
+                width=4
+            )
+
+        return
+
+    # ========================================================
+    # NEÓN
+    # ========================================================
+
+    if tipo == "neon":
+
+        for grosor, alpha in (
+            (35, 30),
+            (25, 60),
+            (15, 120),
+            (8, 255)
+        ):
+
+            draw.ellipse(
+                (
+                    x - grosor,
+                    y - grosor,
+                    x + tamano + grosor,
+                    y + tamano + grosor
+                ),
+                outline=(
+                    50,
+                    255,
+                    220,
+                    alpha
+                ),
+                width=5
+            )
+
+        return
+
+    # ========================================================
+    # CYBER
+    # ========================================================
+
+    if tipo == "cyber":
+
+        draw.ellipse(
+            (
+                x - 25,
+                y - 25,
+                x + tamano + 25,
+                y + tamano + 25
+            ),
+            outline=(
+                40,
+                220,
+                255
+            ),
+            width=10
+        )
+
+        draw.arc(
+            (
+                x - 35,
+                y - 35,
+                x + tamano + 35,
+                y + tamano + 35
+            ),
+            20,
+            120,
+            fill=(
+                255,
+                60,
+                220
+            ),
+            width=8
+        )
+
+        draw.arc(
+            (
+                x - 35,
+                y - 35,
+                x + tamano + 35,
+                y + tamano + 35
+            ),
+            200,
+            300,
+            fill=(
+                60,
+                255,
+                240
+            ),
+            width=8
+        )
+
+        return
+
+    # ========================================================
+    # DARK
+    # ========================================================
+
+    if tipo == "dark":
+
+        draw.ellipse(
+            (
+                x - 22,
+                y - 22,
+                x + tamano + 22,
+                y + tamano + 22
+            ),
+            outline=(
+                5,
+                5,
+                10
+            ),
+            width=22
+        )
+
+        draw.ellipse(
+            (
+                x - 10,
+                y - 10,
+                x + tamano + 10,
+                y + tamano + 10
+            ),
+            outline=(
+                100,
+                100,
+                115
+            ),
+            width=3
+        )
+
+        return
+
+    # ========================================================
+    # ARCANO
+    # ========================================================
+
+    if tipo == "arcano":
+
+        draw.ellipse(
+            (
+                x - 24,
+                y - 24,
+                x + tamano + 24,
+                y + tamano + 24
+            ),
+            outline=(
+                170,
+                80,
+                255
+            ),
+            width=10
+        )
+
+        # Runas.
+        for i in range(8):
+
+            angulo = (
+                math.pi * 2 * i / 8
+            )
+
+            cx = (
+                x + tamano / 2
+                + math.cos(angulo)
+                * (tamano / 2 + 35)
+            )
+
+            cy = (
+                y + tamano / 2
+                + math.sin(angulo)
+                * (tamano / 2 + 35)
+            )
+
+            draw.ellipse(
+                (
+                    cx - 7,
+                    cy - 7,
+                    cx + 7,
+                    cy + 7
+                ),
+                fill=(
+                    210,
+                    130,
+                    255
+                )
+            )
+
+        return
+
+    # ========================================================
+    # SAMURAI
+    # ========================================================
+
+    if tipo == "samurai":
+
+        draw.ellipse(
+            (
+                x - 20,
+                y - 20,
+                x + tamano + 20,
+                y + tamano + 20
+            ),
+            outline=(
+                185,
+                35,
+                40
+            ),
+            width=14
+        )
+
+        draw.arc(
+            (
+                x - 30,
+                y - 30,
+                x + tamano + 30,
+                y + tamano + 30
+            ),
+            210,
+            330,
+            fill=(
+                230,
+                210,
+                160
+            ),
+            width=6
+        )
+
+        return
+
+    # ========================================================
+    # CORAZONES
+    # ========================================================
+
+    if tipo == "corazones":
+
+        dibujar_marco_corazones(
+            draw,
+            x,
+            y,
+            tamano
+        )
+
+        return
+
+    # ========================================================
+    # MARIPOSAS
+    # ========================================================
+
+    if tipo == "mariposas":
+
+        dibujar_marco_mariposas(
+            draw,
+            x,
+            y,
+            tamano
+        )
+
+        return
+
+    # ========================================================
+    # FLORAL
+    # ========================================================
+
+    if tipo == "floral":
+
+        dibujar_marco_floral(
+            draw,
+            x,
+            y,
+            tamano
+        )
+
+        return
+
+    # ========================================================
+    # ROSA CRISTAL
+    # ========================================================
+
+    if tipo == "rosa_cristal":
+
+        draw.ellipse(
+            (
+                x - 22,
+                y - 22,
+                x + tamano + 22,
+                y + tamano + 22
+            ),
+            outline=(
+                255,
+                120,
+                210
+            ),
+            width=14
+        )
+
+        draw.ellipse(
+            (
+                x - 8,
+                y - 8,
+                x + tamano + 8,
+                y + tamano + 8
+            ),
+            outline=(
+                255,
+                220,
+                245
+            ),
+            width=4
+        )
+
+        return
+
+    # ========================================================
+    # MARCO REAL
+    # ========================================================
+
+    if tipo == "real":
+
+        draw.ellipse(
+            (
+                x - 25,
+                y - 25,
+                x + tamano + 25,
+                y + tamano + 25
+            ),
+            outline=(
+                255,
+                205,
+                55
+            ),
+            width=16
+        )
+
+        # Pequeñas coronas alrededor.
+        for angulo in (
+            0,
+            90,
+            180,
+            270
+        ):
+
+            rad = math.radians(
+                angulo
+            )
+
+            cx = (
+                x + tamano / 2
+                + math.cos(rad)
+                * (tamano / 2 + 35)
+            )
+
+            cy = (
+                y + tamano / 2
+                + math.sin(rad)
+                * (tamano / 2 + 35)
+            )
+
+            dibujar_corona(
+                draw,
+                cx - 25,
+                cy - 20,
+                50
+            )
+
+        return
+
+    # ========================================================
+    # COSMICO
+    # ========================================================
+
+    if tipo == "cosmico":
+
+        draw.ellipse(
+            (
+                x - 25,
+                y - 25,
+                x + tamano + 25,
+                y + tamano + 25
+            ),
+            outline=(
+                100,
+                80,
+                255
+            ),
+            width=12
+        )
+
+        for i in range(16):
+
+            angulo = (
+                2 * math.pi * i / 16
+            )
+
+            cx = (
+                x + tamano / 2
+                + math.cos(angulo)
+                * (tamano / 2 + 30)
+            )
+
+            cy = (
+                y + tamano / 2
+                + math.sin(angulo)
+                * (tamano / 2 + 30)
+            )
+
+            draw.ellipse(
+                (
+                    cx - 4,
+                    cy - 4,
+                    cx + 4,
+                    cy + 4
+                ),
+                fill=(
+                    220,
+                    220,
+                    255
+                )
+            )
+
+        return
+
+    # ========================================================
+    # MARCO SIMPLE PARA LOS RESTANTES
+    # ========================================================
+
     draw.ellipse(
         (
             x - 18,
@@ -1015,20 +1865,140 @@ def dibujar_marco(
             y + tamano + 18
         ),
         outline=color,
-        width=12
+        width=14
     )
 
-    # Segundo anillo.
+
+# ============================================================
+# MARCO CORAZONES
+# ============================================================
+
+def dibujar_marco_corazones(
+    draw,
+    x,
+    y,
+    tamano
+):
+    for i in range(12):
+
+        angulo = (
+            2 * math.pi * i / 12
+        )
+
+        cx = (
+            x + tamano / 2
+            + math.cos(angulo)
+            * (tamano / 2 + 28)
+        )
+
+        cy = (
+            y + tamano / 2
+            + math.sin(angulo)
+            * (tamano / 2 + 28)
+        )
+
+        dibujar_corazon(
+            draw,
+            cx - 18,
+            cy - 18,
+            36
+        )
+
+
+# ============================================================
+# MARCO MARIPOSAS
+# ============================================================
+
+def dibujar_marco_mariposas(
+    draw,
+    x,
+    y,
+    tamano
+):
+    for i in range(10):
+
+        angulo = (
+            2 * math.pi * i / 10
+        )
+
+        cx = (
+            x + tamano / 2
+            + math.cos(angulo)
+            * (tamano / 2 + 35)
+        )
+
+        cy = (
+            y + tamano / 2
+            + math.sin(angulo)
+            * (tamano / 2 + 35)
+        )
+
+        dibujar_mariposa(
+            draw,
+            cx - 22,
+            cy - 22,
+            44
+        )
+
+
+# ============================================================
+# MARCO FLORAL
+# ============================================================
+
+def dibujar_marco_floral(
+    draw,
+    x,
+    y,
+    tamano
+):
     draw.ellipse(
         (
-            x - 8,
-            y - 8,
-            x + tamano + 8,
-            y + tamano + 8
+            x - 14,
+            y - 14,
+            x + tamano + 14,
+            y + tamano + 14
         ),
-        outline=color,
-        width=4
+        outline=(
+            100,
+            220,
+            120
+        ),
+        width=7
     )
+
+    for i in range(12):
+
+        angulo = (
+            2 * math.pi * i / 12
+        )
+
+        cx = (
+            x + tamano / 2
+            + math.cos(angulo)
+            * (tamano / 2 + 25)
+        )
+
+        cy = (
+            y + tamano / 2
+            + math.sin(angulo)
+            * (tamano / 2 + 25)
+        )
+
+        r = 13
+
+        draw.ellipse(
+            (
+                cx - r,
+                cy - r,
+                cx + r,
+                cy + r
+            ),
+            fill=(
+                255,
+                110,
+                170
+            )
+        )
 
 
 # ============================================================
@@ -1041,19 +2011,18 @@ def dibujar_corona(
     y,
     tamano=130
 ):
-    color_oro = (
+    oro = (
         255,
         205,
         45
     )
 
-    color_luz = (
+    luz = (
         255,
-        235,
-        120
+        240,
+        130
     )
 
-    # Picos.
     puntos = [
         (
             x,
@@ -1087,11 +2056,10 @@ def dibujar_corona(
 
     draw.polygon(
         puntos,
-        fill=color_oro,
-        outline=(255, 245, 170)
+        fill=oro,
+        outline=luz
     )
 
-    # Banda inferior.
     draw.rounded_rectangle(
         (
             x,
@@ -1100,37 +2068,10 @@ def dibujar_corona(
             y + tamano
         ),
         radius=10,
-        fill=color_oro,
-        outline=color_luz,
+        fill=oro,
+        outline=luz,
         width=3
     )
-
-    # Joyas.
-    for factor in (
-        0.18,
-        0.50,
-        0.82
-    ):
-
-        cx = (
-            x
-            + tamano * factor
-        )
-
-        cy = (
-            y
-            + tamano * 0.82
-        )
-
-        draw.ellipse(
-            (
-                cx - 7,
-                cy - 7,
-                cx + 7,
-                cy + 7
-            ),
-            fill=(255, 80, 80)
-        )
 
 
 # ============================================================
@@ -1231,7 +2172,11 @@ def dibujar_mariposa(
             x + tamano * 0.58,
             y + tamano * 0.92
         ),
-        fill=(35, 30, 55)
+        fill=(
+            35,
+            30,
+            55
+        )
     )
 
 
@@ -1252,89 +2197,486 @@ def dibujar_efecto(
         return
 
     # ========================================================
-    # CORONA
+    # FUEGO
     # ========================================================
 
     if (
-        "corona" in texto
-        or "crown" in texto
+        "fuego" in texto
+        or "infernal" in texto
     ):
 
-        dibujar_corona(
-            draw,
-            X_CONTENIDO + 360,
-            25,
-            130
-        )
+        for i in range(12):
+
+            x = (
+                30
+                + i * 160
+            )
+
+            altura = (
+                80
+                + ((i * 37) % 90)
+            )
+
+            draw.polygon(
+                [
+                    (
+                        x,
+                        ALTO - 10
+                    ),
+                    (
+                        x + 45,
+                        ALTO - altura
+                    ),
+                    (
+                        x + 90,
+                        ALTO - 10
+                    )
+                ],
+                fill=(
+                    255,
+                    80,
+                    20,
+                    150
+                )
+            )
 
     # ========================================================
-    # CORAZÓN
+    # ELECTRICIDAD / SOBRECARGA
     # ========================================================
 
     elif (
-        "corazon" in texto
+        "electricidad" in texto
+        or "sobrecarga" in texto
+    ):
+
+        for i in range(10):
+
+            x = (
+                100
+                + i * 190
+            )
+
+            draw.line(
+                (
+                    x,
+                    20,
+                    x + 25,
+                    120,
+                    x - 10,
+                    220,
+                    x + 25,
+                    320
+                ),
+                fill=(
+                    80,
+                    220,
+                    255
+                ),
+                width=5
+            )
+
+    # ========================================================
+    # ESCARCHA / GLACIAL
+    # ========================================================
+
+    elif (
+        "escarcha" in texto
+        or "glacial" in texto
+    ):
+
+        for i in range(20):
+
+            x = (
+                30
+                + i * 95
+            )
+
+            y = (
+                (i * 73)
+                % ALTO
+            )
+
+            draw.ellipse(
+                (
+                    x,
+                    y,
+                    x + 12,
+                    y + 12
+                ),
+                fill=(
+                    190,
+                    240,
+                    255
+                )
+            )
+
+    # ========================================================
+    # CHISPAS
+    # ========================================================
+
+    elif "chispas" in texto:
+
+        for i in range(20):
+
+            x = (
+                40
+                + (i * 157)
+                % (ANCHO - 80)
+            )
+
+            y = (
+                60
+                + (i * 83)
+                % (ALTO - 120)
+            )
+
+            draw.ellipse(
+                (
+                    x,
+                    y,
+                    x + 10,
+                    y + 10
+                ),
+                fill=(
+                    255,
+                    210,
+                    60
+                )
+            )
+
+    # ========================================================
+    # COSMICO / NEBULOSA
+    # ========================================================
+
+    elif (
+        "cosmico" in texto
+        or "nebulosa" in texto
+    ):
+
+        for i in range(30):
+
+            x = (
+                20
+                + (i * 127)
+                % (ANCHO - 40)
+            )
+
+            y = (
+                20
+                + (i * 71)
+                % (ALTO - 40)
+            )
+
+            r = (
+                3
+                + i % 4
+            )
+
+            draw.ellipse(
+                (
+                    x - r,
+                    y - r,
+                    x + r,
+                    y + r
+                ),
+                fill=(
+                    210,
+                    190,
+                    255
+                )
+            )
+
+    # ========================================================
+    # AURA
+    # ========================================================
+
+    elif "aura" in texto:
+
+        for i in range(6):
+
+            margen = (
+                20
+                + i * 25
+            )
+
+            draw.rounded_rectangle(
+                (
+                    margen,
+                    margen,
+                    ANCHO - margen,
+                    ALTO - margen
+                ),
+                radius=35,
+                outline=(
+                    110,
+                    50,
+                    220,
+                    max(
+                        10,
+                        80 - i * 10
+                    )
+                ),
+                width=5
+            )
+
+    # ========================================================
+    # CORAZONES
+    # ========================================================
+
+    elif (
+        "corazones" in texto
+        or "corazon" in texto
         or "corazón" in texto
-        or "heart" in texto
     ):
 
-        dibujar_corazon(
-            draw,
-            ANCHO - 270,
-            80,
-            100
-        )
+        for i in range(14):
+
+            x = (
+                40
+                + (i * 139)
+                % (ANCHO - 80)
+            )
+
+            y = (
+                40
+                + (i * 91)
+                % (ALTO - 80)
+            )
+
+            dibujar_corazon(
+                draw,
+                x,
+                y,
+                35
+            )
 
     # ========================================================
-    # MARIPOSA
+    # PÉTALOS
     # ========================================================
 
     elif (
-        "mariposa" in texto
-        or "mariposa" in texto
-        or "butterfly" in texto
+        "petalo" in texto
+        or "pétalo" in texto
     ):
 
-        dibujar_mariposa(
-            draw,
-            ANCHO - 280,
-            90,
-            110
-        )
+        for i in range(25):
+
+            x = (
+                30
+                + (i * 151)
+                % (ANCHO - 60)
+            )
+
+            y = (
+                30
+                + (i * 83)
+                % (ALTO - 60)
+            )
+
+            draw.ellipse(
+                (
+                    x,
+                    y,
+                    x + 18,
+                    y + 30
+                ),
+                fill=(
+                    255,
+                    130,
+                    180
+                )
+            )
 
     # ========================================================
-    # BRILLO
+    # MARIPOSAS
     # ========================================================
 
-    elif (
-        "brillo" in texto
-        or "glow" in texto
-        or "luz" in texto
-    ):
+    elif "mariposa" in texto:
 
-        draw.ellipse(
-            (
-                ANCHO - 420,
-                40,
-                ANCHO - 80,
-                380
-            ),
-            outline=(255, 255, 255, 80),
-            width=10
+        for i in range(8):
+
+            x = (
+                40
+                + (i * 230)
+                % (ANCHO - 100)
+            )
+
+            y = (
+                50
+                + (i * 137)
+                % (ALTO - 120)
+            )
+
+            dibujar_mariposa(
+                draw,
+                x,
+                y,
+                55
+            )
+
+    # ========================================================
+    # BURBUJAS
+    # ========================================================
+
+    elif "burbujas" in texto:
+
+        for i in range(20):
+
+            x = (
+                30
+                + (i * 113)
+                % (ANCHO - 60)
+            )
+
+            y = (
+                50
+                + (i * 67)
+                % (ALTO - 100)
+            )
+
+            r = (
+                6
+                + i % 8
+            )
+
+            draw.ellipse(
+                (
+                    x - r,
+                    y - r,
+                    x + r,
+                    y + r
+                ),
+                outline=(
+                    170,
+                    230,
+                    255
+                ),
+                width=3
+            )
+
+    # ========================================================
+    # ESTRELLAS
+    # ========================================================
+
+    elif "estrellas" in texto:
+
+        for i in range(25):
+
+            x = (
+                30
+                + (i * 97)
+                % (ANCHO - 60)
+            )
+
+            y = (
+                30
+                + (i * 137)
+                % (ALTO - 60)
+            )
+
+            dibujar_estrella(
+                draw,
+                x,
+                y,
+                12
+            )
+
+    # ========================================================
+    # ARCOIRIS
+    # ========================================================
+
+    elif "arcoiris" in texto:
+
+        colores = (
+            (255, 70, 70),
+            (255, 170, 50),
+            (255, 240, 70),
+            (80, 230, 100),
+            (70, 180, 255),
+            (150, 90, 255),
         )
+
+        for i, color in enumerate(
+            colores
+        ):
+
+            draw.arc(
+                (
+                    600 - i * 20,
+                    120 - i * 20,
+                    1500 + i * 20,
+                    1020 + i * 20
+                ),
+                200,
+                340,
+                fill=color,
+                width=12
+            )
 
 
 # ============================================================
-# INSIGNIA DE RANGO
+# ESTRELLA
 # ============================================================
 
-def dibujar_insignia_rango(
+def dibujar_estrella(
     draw,
-    x,
-    y,
-    tamano=64,
-    rango=None
+    cx,
+    cy,
+    radio
 ):
-    # Fondo circular.
+    puntos = []
+
+    for i in range(10):
+
+        angulo = (
+            -math.pi / 2
+            + i * math.pi / 5
+        )
+
+        r = (
+            radio
+            if i % 2 == 0
+            else radio * 0.42
+        )
+
+        puntos.append(
+            (
+                cx + math.cos(angulo) * r,
+                cy + math.sin(angulo) * r
+            )
+        )
+
+    draw.polygon(
+        puntos,
+        fill=(
+            255,
+            230,
+            80
+        )
+    )
+
+
+# ============================================================
+# INSIGNIAS
+# ============================================================
+
+def dibujar_insignia(
+    draw,
+    producto
+):
+    texto = _producto_id(
+        producto
+    )
+
+    if "insignia" not in texto:
+        return
+
+    # Las insignias se colocan arriba a la derecha.
+    x = ANCHO - 210
+    y = 60
+    tamano = 110
+
+    # Base.
     draw.ellipse(
         (
             x,
@@ -1342,26 +2684,160 @@ def dibujar_insignia_rango(
             x + tamano,
             y + tamano
         ),
-        fill=(255, 205, 55),
-        outline=(255, 240, 150),
+        fill=(
+            25,
+            30,
+            45
+        ),
+        outline=(
+            255,
+            255,
+            255
+        ),
+        width=5
+    )
+
+    # CORONA
+    if "corona" in texto:
+
+        dibujar_corona(
+            draw,
+            x + 18,
+            y + 22,
+            74
+        )
+
+    # RAYO
+    elif (
+        "rayo" in texto
+        or "rayo" in texto
+    ):
+
+        puntos = [
+            (
+                x + 60,
+                y + 10
+            ),
+            (
+                x + 30,
+                y + 60
+            ),
+            (
+                x + 55,
+                y + 60
+            ),
+            (
+                x + 40,
+                y + 105
+            ),
+            (
+                x + 85,
+                y + 50
+            ),
+            (
+                x + 60,
+                y + 50
+            )
+        ]
+
+        draw.polygon(
+            puntos,
+            fill=(
+                255,
+                225,
+                60
+            )
+        )
+
+    # CORAZÓN
+    elif "corazon" in texto or "corazón" in texto:
+
+        dibujar_corazon(
+            draw,
+            x + 20,
+            y + 20,
+            70
+        )
+
+    # ESTELAR
+    elif "estelar" in texto:
+
+        dibujar_estrella(
+            draw,
+            x + 55,
+            y + 55,
+            40
+        )
+
+    # ARCANA
+    elif "arcana" in texto:
+
+        draw.ellipse(
+            (
+                x + 20,
+                y + 20,
+                x + 90,
+                y + 90
+            ),
+            outline=(
+                190,
+                100,
+                255
+            ),
+            width=7
+        )
+
+        draw.line(
+            (
+                x + 30,
+                y + 80,
+                x + 80,
+                y + 30
+            ),
+            fill=(
+                230,
+                180,
+                255
+            ),
+            width=7
+        )
+
+
+# ============================================================
+# INSIGNIA DE NIVEL
+# ============================================================
+
+def dibujar_insignia_rango(
+    draw,
+    x,
+    y,
+    tamano=64
+):
+    draw.ellipse(
+        (
+            x,
+            y,
+            x + tamano,
+            y + tamano
+        ),
+        fill=(
+            255,
+            205,
+            55
+        ),
+        outline=(
+            255,
+            240,
+            150
+        ),
         width=3
     )
 
-    # Estrella visible con fuente del sistema.
-    fuente = cargar_fuente(
-        42,
-        True
-    )
-
-    draw.text(
-        (
-            x + tamano / 2,
-            y + tamano / 2 - 2
-        ),
-        "★",
-        font=fuente,
-        anchor="mm",
-        fill=(55, 45, 10)
+    dibujar_estrella(
+        draw,
+        x + tamano / 2,
+        y + tamano / 2,
+        tamano * 0.34
     )
 
 
@@ -1407,16 +2883,12 @@ def dibujar_experiencia(
         )
     )
 
-    # ========================================================
     # NIVEL
-    # ========================================================
-
     dibujar_insignia_rango(
         draw,
         X_CONTENIDO,
         Y_NIVEL - 32,
-        64,
-        rango
+        64
     )
 
     fuente_nivel = cargar_fuente(
@@ -1432,13 +2904,14 @@ def dibujar_experiencia(
         f"NIVEL {nivel}",
         font=fuente_nivel,
         anchor="lm",
-        fill=(255, 255, 255)
+        fill=(
+            255,
+            255,
+            255
+        )
     )
 
-    # ========================================================
     # XP
-    # ========================================================
-
     fuente_xp = cargar_fuente(
         FONT_XP,
         True
@@ -1455,13 +2928,14 @@ def dibujar_experiencia(
         ),
         font=fuente_xp,
         anchor="lm",
-        fill=(235, 240, 250)
+        fill=(
+            235,
+            240,
+            250
+        )
     )
 
-    # ========================================================
     # BARRA
-    # ========================================================
-
     BAR_X = X_CONTENIDO
     BAR_Y = Y_BARRA
     BAR_W = 1120
@@ -1475,8 +2949,16 @@ def dibujar_experiencia(
             BAR_Y + BAR_H
         ),
         radius=BAR_H // 2,
-        fill=(10, 14, 23),
-        outline=(145, 155, 175),
+        fill=(
+            10,
+            14,
+            23
+        ),
+        outline=(
+            145,
+            155,
+            175
+        ),
         width=4
     )
 
@@ -1496,13 +2978,14 @@ def dibujar_experiencia(
                 BAR_Y + BAR_H
             ),
             radius=BAR_H // 2,
-            fill=(70, 190, 255)
+            fill=(
+                70,
+                190,
+                255
+            )
         )
 
-    # ========================================================
     # PORCENTAJE
-    # ========================================================
-
     fuente_porcentaje = cargar_fuente(
         FONT_PORCENTAJE,
         True
@@ -1516,13 +2999,14 @@ def dibujar_experiencia(
         f"{porcentaje:.1f}%",
         font=fuente_porcentaje,
         anchor="ra",
-        fill=(255, 255, 255)
+        fill=(
+            255,
+            255,
+            255
+        )
     )
 
-    # ========================================================
     # RANGO
-    # ========================================================
-
     if rango:
 
         fuente_rango = cargar_fuente(
@@ -1538,7 +3022,11 @@ def dibujar_experiencia(
             str(rango),
             font=fuente_rango,
             anchor="lm",
-            fill=(255, 215, 90)
+            fill=(
+                255,
+                215,
+                90
+            )
         )
 
 
@@ -1573,7 +3061,7 @@ def generar_perfil(
     )
 
     # ========================================================
-    # DETECTAR COSMÉTICOS
+    # COSMÉTICOS
     # ========================================================
 
     color_detectado = detectar_color_nombre(
@@ -1588,11 +3076,9 @@ def generar_perfil(
         equipados_lista
     )
 
-    # Si se pasó explícitamente uno,
-    # respetarlo salvo que haya cosmético equipado.
-    color_nombre = (
+    color_nombre_real = (
         color_detectado
-        if color_detectado
+        if color_detectado != "blanco"
         else nombre_color
     )
 
@@ -1609,7 +3095,7 @@ def generar_perfil(
     )
 
     # ========================================================
-    # CREAR IMAGEN
+    # IMAGEN
     # ========================================================
 
     imagen = Image.new(
@@ -1618,7 +3104,11 @@ def generar_perfil(
             ANCHO,
             ALTO
         ),
-        (20, 25, 40)
+        (
+            20,
+            25,
+            40
+        )
     )
 
     dibujar_fondo(
@@ -1659,6 +3149,10 @@ def generar_perfil(
         marco_real
     )
 
+    # ========================================================
+    # AVATAR
+    # ========================================================
+
     dibujar_avatar(
         imagen,
         avatar,
@@ -1672,7 +3166,7 @@ def generar_perfil(
     # ========================================================
 
     color = COLORES_NOMBRE.get(
-        color_nombre,
+        color_nombre_real,
         COLORES_NOMBRE["blanco"]
     )
 
@@ -1681,9 +3175,6 @@ def generar_perfil(
         True
     )
 
-    # IMPORTANTE:
-    # NO usamos .upper().
-    # El nombre sale exactamente como fue escrito.
     nombre_mostrado = texto_ajustado(
         draw,
         str(nombre),
@@ -1703,7 +3194,7 @@ def generar_perfil(
     )
 
     # ========================================================
-    # BANDERA + PAÍS
+    # PAÍS
     # ========================================================
 
     codigo_pais = _pais_codigo(
@@ -1748,11 +3239,15 @@ def generar_perfil(
             nombre_pais,
             font=fuente_pais,
             anchor="lm",
-            fill=(235, 240, 250)
+            fill=(
+                235,
+                240,
+                250
+            )
         )
 
     # ========================================================
-    # ID INTERNO
+    # INFORMACIÓN
     # ========================================================
 
     fuente_id = cargar_fuente(
@@ -1770,12 +3265,12 @@ def generar_perfil(
             f"ID INTERNO   #{id_interno}",
             font=fuente_id,
             anchor="lm",
-            fill=(225, 230, 240)
+            fill=(
+                225,
+                230,
+                240
+            )
         )
-
-    # ========================================================
-    # BOT ID
-    # ========================================================
 
     if bot_id is not None:
 
@@ -1787,13 +3282,12 @@ def generar_perfil(
             f"ID DEL BOT   {bot_id}",
             font=fuente_id,
             anchor="lm",
-            fill=(225, 230, 240)
+            fill=(
+                225,
+                230,
+                240
+            )
         )
-
-    # ========================================================
-    # TELEGRAM ID
-    # SOLO PROPIETARIO
-    # ========================================================
 
     if (
         propietario
@@ -1808,7 +3302,11 @@ def generar_perfil(
             f"TELEGRAM ID   {telegram_id}",
             font=fuente_id,
             anchor="lm",
-            fill=(255, 220, 110)
+            fill=(
+                255,
+                220,
+                110
+            )
         )
 
     # ========================================================
@@ -1837,11 +3335,15 @@ def generar_perfil(
                 True
             ),
             anchor="lm",
-            fill=(255, 215, 70)
+            fill=(
+                255,
+                215,
+                70
+            )
         )
 
     # ========================================================
-    # ACCESORIOS / EFECTOS
+    # COSMÉTICOS VISUALES
     # ========================================================
 
     for accesorio in equipados_lista:
@@ -1853,24 +3355,81 @@ def generar_perfil(
         if not texto:
             continue
 
-        # No dibujar como accesorio los productos
-        # que ya fueron utilizados como color/marco/fondo.
+        # ----------------------------------------------------
+        # COLORES
+        # ----------------------------------------------------
+
         if (
-            "nombre_" in texto
-            or "color_" in texto
-            or "marco_" in texto
-            or "frame_" in texto
-            or "fondo_" in texto
-            or "background" in texto
-            or "estilo_fondo" in texto
+            "color_" in texto
+            or "nombre_" in texto
+            or "nombre " in texto
         ):
             continue
 
-        dibujar_efecto(
-            draw,
-            accesorio,
-            0
-        )
+        # ----------------------------------------------------
+        # MARCOS
+        # ----------------------------------------------------
+
+        if (
+            "marco_" in texto
+            or "marco " in texto
+            or "frame" in texto
+            or "anim_" in texto
+        ):
+            continue
+
+        # ----------------------------------------------------
+        # FONDOS
+        # ----------------------------------------------------
+
+        if (
+            "fondo_" in texto
+            or "fondo " in texto
+            or "background" in texto
+        ):
+            continue
+
+        # ----------------------------------------------------
+        # INSIGNIAS
+        # ----------------------------------------------------
+
+        if "insignia" in texto:
+
+            dibujar_insignia(
+                draw,
+                accesorio
+            )
+
+            continue
+
+        # ----------------------------------------------------
+        # EFECTOS
+        # ----------------------------------------------------
+
+        if (
+            "efecto_" in texto
+            or "efecto " in texto
+            or "fuego" in texto
+            or "electricidad" in texto
+            or "escarcha" in texto
+            or "chispas" in texto
+            or "cosmico" in texto
+            or "aura" in texto
+            or "corazones" in texto
+            or "petalo" in texto
+            or "mariposas" in texto
+            or "burbujas" in texto
+            or "estrellas" in texto
+            or "arcoiris" in texto
+        ):
+
+            dibujar_efecto(
+                draw,
+                accesorio,
+                0
+            )
+
+            continue
 
     # ========================================================
     # EXPERIENCIA

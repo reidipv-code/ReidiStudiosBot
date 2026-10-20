@@ -1,4 +1,8 @@
 # comandos/menu.py
+# Menú principal de ReidiStudiosBot
+# Perfil accesible desde el menú, sin utilizar /perfil.
+
+import logging
 
 from telegram import (
     Update,
@@ -7,9 +11,17 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from comandos.lang import teclado_idiomas
-from core.idiomas import obtener_idioma, IDIOMAS
-from core.razas_clases import personaje_completo
+from core.idiomas import (
+    obtener_idioma,
+    IDIOMAS,
+)
+from core.razas_clases import (
+    personaje_completo,
+    obtener_personaje,
+    habilidades_de_personaje,
+)
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================================
@@ -17,100 +29,208 @@ from core.razas_clases import personaje_completo
 # ============================================================
 
 def boton(texto: str, destino: str) -> InlineKeyboardButton:
-    """Crea un botón interno del menú."""
     return InlineKeyboardButton(
-        texto,
+        text=texto,
         callback_data=f"menu_{destino}",
     )
 
 
 def teclado_menu():
-    """Menú principal con las categorías en el orden solicitado."""
-
     return InlineKeyboardMarkup([
-        [
-            boton("👤 Mi Perfil", "perfil"),
-        ],
-        [
-            boton("🤝 Social", "social"),
-        ],
-        [
-            boton("✉️ Mensajes", "mensajes"),
-        ],
-        [
-            boton("🗺️ Mapa", "mapa"),
-        ],
-        [
-            boton("⚙️ Configuración", "configuracion"),
-        ],
+        [boton("👤 Mi Perfil", "perfil")],
+        [boton("🤝 Social", "social")],
+        [boton("✉️ Mensajes", "mensajes")],
+        [boton("🗺️ Mapa", "mapa")],
+        [boton("⚙️ Configuración", "configuracion")],
     ])
 
 
 def teclado_perfil():
-    """Opciones de Mi Perfil."""
-
     return InlineKeyboardMarkup([
-        [
-            boton("👤 Perfil", "ver_perfil"),
-        ],
-        [
-            boton("🎒 Inventario", "inventario"),
-        ],
-        [
-            boton("✨ Habilidades", "habilidades"),
-        ],
-        [
-            boton("⬅️ Volver al menú", "inicio"),
-        ],
+        [boton("👤 Perfil", "ver_perfil")],
+        [boton("🎒 Inventario", "inventario")],
+        [boton("✨ Habilidades", "habilidades")],
+        [boton("⬅️ Volver al menú", "inicio")],
     ])
 
 
 def teclado_social():
-    """Opciones de Social."""
-
     return InlineKeyboardMarkup([
-        [
-            boton("👥 Amigos", "amigos"),
-        ],
-        [
-            boton("⚔️ Grupo", "grupo"),
-        ],
-        [
-            boton("🏰 Gremio", "gremio"),
-        ],
-        [
-            boton("⬅️ Volver al menú", "inicio"),
-        ],
+        [boton("👥 Amigos", "amigos")],
+        [boton("⚔️ Grupo", "grupo")],
+        [boton("🏰 Gremio", "gremio")],
+        [boton("⬅️ Volver al menú", "inicio")],
     ])
 
 
 def teclado_configuracion():
-    """Opciones de Configuración."""
-
     return InlineKeyboardMarkup([
-        [
-            boton("📖 Ayuda", "ayuda"),
-        ],
-        [
-            boton("🌐 Idioma", "idioma"),
-        ],
-        [
-            boton("🔌 Desconectar", "desconectar"),
-        ],
-        [
-            boton("⬅️ Volver al menú", "inicio"),
-        ],
+        [boton("📖 Ayuda", "ayuda")],
+        [boton("🌐 Idioma", "idioma")],
+        [boton("🔌 Desconectar", "desconectar")],
+        [boton("⬅️ Volver al menú", "inicio")],
     ])
 
 
-def teclado_volver(destino: str = "inicio"):
-    """Teclado sencillo para regresar."""
-
+def teclado_volver(destino="inicio"):
     return InlineKeyboardMarkup([
-        [
-            boton("⬅️ Volver", destino),
-        ],
+        [boton("⬅️ Volver", destino)],
     ])
+
+
+# ============================================================
+# FUNCIONES AUXILIARES
+# ============================================================
+
+def nombre_idioma_usuario(user_id: int) -> str:
+    codigo = obtener_idioma(user_id)
+    informacion = IDIOMAS.get(codigo, IDIOMAS["es"])
+    return informacion.get("native", "Español")
+
+
+def texto_menu(user_id: int) -> str:
+    idioma = nombre_idioma_usuario(user_id)
+
+    if personaje_completo(user_id):
+        return (
+            "⚔️ MENÚ PRINCIPAL\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            f"🌐 Idioma: {idioma}\n\n"
+            "Selecciona una categoría:"
+        )
+
+    return (
+        "⚔️ MENÚ PRINCIPAL\n"
+        "━━━━━━━━━━━━━━━━━━\n\n"
+        f"🌐 Idioma: {idioma}\n\n"
+        "Antes de entrar al MMORPG, completa el registro:\n\n"
+        "1️⃣ Selecciona el idioma con /lang.\n"
+        "2️⃣ Registra tu nombre y país con /reg Nombre.Pais.\n"
+        "3️⃣ Selecciona tu raza.\n"
+        "4️⃣ Selecciona una clase compatible.\n\n"
+        "Después podrás acceder a las categorías del menú."
+    )
+
+
+async def editar_menu(
+    query,
+    texto: str,
+    teclado=None,
+):
+    """Edita el mensaje actual y evita errores por textos idénticos."""
+
+    try:
+        await query.edit_message_text(
+            texto,
+            reply_markup=teclado,
+        )
+    except Exception as error:
+        if "Message is not modified" not in str(error):
+            logger.exception("No se pudo actualizar el menú: %s", error)
+
+
+async def requiere_personaje(query, user_id, destino="inicio"):
+    """Bloquea las secciones RPG si el registro está incompleto."""
+
+    if personaje_completo(user_id):
+        return True
+
+    await editar_menu(
+        query,
+        "🔒 Todavía no tienes un personaje completo.\n\n"
+        "Completa los pasos del registro:\n\n"
+        "1️⃣ /lang español\n"
+        "2️⃣ /reg Nombre.Pais\n"
+        "3️⃣ Selecciona una raza.\n"
+        "4️⃣ Selecciona una clase compatible.",
+        teclado_volver(destino),
+    )
+    return False
+
+
+# ============================================================
+# PERFIL DEL JUGADOR
+# ============================================================
+
+def construir_texto_perfil(user_id: int) -> str:
+    """
+    Construye el perfil del jugador usando los datos existentes.
+
+    Las estadísticas solo se muestran al propio jugador.
+    """
+
+    from core.db import obtener_datos
+    from comandos.registro_rpg import (
+        CLASES,
+        rango_por_nivel,
+        barra_progreso,
+        xp_acumulada_actual,
+        xp_para_siguiente_nivel,
+    )
+
+    datos = obtener_datos(user_id)
+    personaje = obtener_personaje(user_id)
+
+    if not datos or not personaje:
+        return (
+            "❌ No se pudieron cargar los datos del personaje.\n\n"
+            "Comprueba que el registro esté completo."
+        )
+
+    nombre = datos[0]
+
+    try:
+        _, id_interno, tokens, xp, nivel, sesion = datos
+    except (ValueError, TypeError):
+        logger.exception("Formato inesperado de los datos del usuario.")
+        return "❌ No se pudieron interpretar los datos del personaje."
+
+    xp_actual = xp_acumulada_actual(xp, nivel)
+    xp_siguiente = xp_para_siguiente_nivel(nivel)
+
+    clase_info = CLASES.get(personaje["clase"], {})
+    estado = "🟢 Online" if sesion else "⚫ Offline"
+
+    try:
+        habilidades = habilidades_de_personaje(user_id) or []
+    except Exception:
+        logger.exception("No se pudieron obtener las habilidades.")
+        habilidades = []
+
+    lista_habilidades = (
+        "\n".join(f"• {habilidad}" for habilidad in habilidades)
+        if habilidades
+        else "• Todavía no tienes habilidades disponibles."
+    )
+
+    return (
+        f"👤 {nombre}\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 Personaje: #{id_interno}\n"
+        f"🧬 Raza: {personaje['raza']}\n"
+        f"⚔️ Clase: {personaje['clase']}\n"
+        f"🏳️ Facción: {personaje['faccion']}\n"
+        f"🎖️ Rango: {rango_por_nivel(nivel)}\n"
+        f"⭐ Nivel: {nivel}\n"
+        f"✨ XP: {xp_actual}/{xp_siguiente}\n"
+        f"📊 {barra_progreso(xp, nivel)}\n"
+        f"💰 Tokens: {tokens}\n"
+        f"📡 Sesión: {estado}\n\n"
+        "📊 ESTADÍSTICAS\n"
+        "━━━━━━━━━━━━━━━━━━\n"
+        f"❤️ HP: {personaje['hp_actual']}/"
+        f"{personaje['hp_max']}\n"
+        f"🔷 MP: {personaje['mp_actual']}/"
+        f"{personaje['mp_max']}\n"
+        f"💪 Fuerza: {personaje['fuerza']}\n"
+        f"🏃 Agilidad: {personaje['agilidad']}\n"
+        f"🧠 Intelecto: {personaje['intelecto']}\n"
+        f"🛡️ Resistencia: {personaje['resistencia']}\n"
+        f"✨ Espíritu: {personaje['espiritu']}\n\n"
+        f"📖 Rol: {clase_info.get('rol', 'Sin definir')}\n\n"
+        "✨ HABILIDADES\n"
+        f"{lista_habilidades}"
+    )
 
 
 # ============================================================
@@ -121,117 +241,46 @@ async def menu_command(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """Muestra el menú principal."""
-
     mensaje = update.effective_message
     usuario = update.effective_user
 
     if not mensaje or not usuario:
         return
 
-    idioma = obtener_idioma(usuario.id)
-
-    informacion_idioma = IDIOMAS.get(
-        idioma,
-        {"native": "Español"},
-    )
-
-    nombre_idioma = informacion_idioma["native"]
-
-    if personaje_completo(usuario.id):
-        texto = (
-            "⚔️ MENÚ PRINCIPAL\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"🌐 Idioma: {nombre_idioma}\n\n"
-            "Selecciona una categoría:\n\n"
-            "👤 Mi Perfil\n"
-            "🤝 Social\n"
-            "✉️ Mensajes\n"
-            "🗺️ Mapa\n"
-            "⚙️ Configuración"
-        )
-
-    else:
-        texto = (
-            "⚔️ MENÚ PRINCIPAL\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            f"🌐 Idioma: {nombre_idioma}\n\n"
-            "Antes de entrar al MMORPG, completa el registro "
-            "de cuatro pasos:\n\n"
-            "1️⃣ Selecciona el idioma con /lang.\n"
-            "2️⃣ Registra tu nombre y país con /reg Nombre.Pais.\n"
-            "3️⃣ Selecciona tu raza.\n"
-            "4️⃣ Selecciona una clase compatible.\n\n"
-            "Después podrás acceder a las categorías del menú."
-        )
-
     await mensaje.reply_text(
-        texto,
+        texto_menu(usuario.id),
         reply_markup=teclado_menu(),
     )
 
 
 # ============================================================
-# PROCESAR BOTONES DEL MENÚ
+# CALLBACKS DEL MENÚ
 # ============================================================
 
 async def menu_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ):
-    """Gestiona las categorías y las opciones del menú."""
-
     query = update.callback_query
 
     if not query:
         return
 
     data = query.data or ""
+    user_id = query.from_user.id
 
     await query.answer()
 
-    usuario = query.from_user
-    user_id = usuario.id
-
     # --------------------------------------------------------
-    # VOLVER AL MENÚ PRINCIPAL
+    # MENÚ PRINCIPAL
     # --------------------------------------------------------
 
     if data == "menu_inicio":
-
-        idioma = obtener_idioma(user_id)
-
-        informacion_idioma = IDIOMAS.get(
-            idioma,
-            {"native": "Español"},
+        await editar_menu(
+            query,
+            texto_menu(user_id),
+            teclado_menu(),
         )
-
-        nombre_idioma = informacion_idioma["native"]
-
-        if personaje_completo(user_id):
-            texto = (
-                "⚔️ MENÚ PRINCIPAL\n"
-                "━━━━━━━━━━━━━━━━━━\n\n"
-                f"🌐 Idioma: {nombre_idioma}\n\n"
-                "Selecciona una categoría:"
-            )
-
-        else:
-            texto = (
-                "⚔️ MENÚ PRINCIPAL\n\n"
-                f"🌐 Idioma: {nombre_idioma}\n\n"
-                "Completa los cuatro pasos del registro:\n\n"
-                "1️⃣ /lang\n"
-                "2️⃣ /reg Nombre.Pais\n"
-                "3️⃣ Seleccionar raza\n"
-                "4️⃣ Seleccionar clase compatible"
-            )
-
-        await query.edit_message_text(
-            texto,
-            reply_markup=teclado_menu(),
-        )
-
         return
 
     # --------------------------------------------------------
@@ -239,80 +288,37 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_perfil":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Todavía no tienes un personaje completo.\n\n"
-                "Primero selecciona tu idioma con /lang.\n"
-                "Después registra tu nombre y país con:\n"
-                "/reg Nombre.Pais\n\n"
-                "Finalmente, selecciona una raza y una clase.",
-                reply_markup=teclado_volver(),
-            )
+        if not await requiere_personaje(query, user_id):
             return
 
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "👤 MI PERFIL\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Selecciona una opción:\n\n"
-            "👤 Perfil: consulta los datos de tu personaje.\n"
-            "🎒 Inventario: consulta tus objetos.\n"
-            "✨ Habilidades: consulta tus habilidades.",
-            reply_markup=teclado_perfil(),
+            "Selecciona qué quieres consultar:",
+            teclado_perfil(),
         )
-
         return
 
     # --------------------------------------------------------
-    # PERFIL DEL PROPIO JUGADOR
+    # MOSTRAR PERFIL SIN /perfil
     # --------------------------------------------------------
 
     if data == "menu_ver_perfil":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Primero debes completar el registro "
-                "de tu personaje.",
-                reply_markup=teclado_volver("perfil"),
-            )
+        if not await requiere_personaje(query, user_id, "perfil"):
             return
 
-        await query.edit_message_text(
-            "👤 TU PERFIL\n\n"
-            "Para consultar los datos de tu personaje, "
-            "utiliza el comando:\n\n"
-            "/perfil\n\n"
-            "Puedes regresar a Mi Perfil con el botón inferior.",
-            reply_markup=teclado_volver("perfil"),
+        try:
+            texto = construir_texto_perfil(user_id)
+        except Exception:
+            logger.exception("Error al construir el perfil.")
+            texto = "❌ Ocurrió un error al cargar tu perfil."
+
+        await editar_menu(
+            query,
+            texto,
+            teclado_volver("perfil"),
         )
-
-        return
-
-    # --------------------------------------------------------
-    # INVENTARIO
-    # --------------------------------------------------------
-
-    if data == "menu_inventario":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder al inventario.",
-                reply_markup=teclado_volver("perfil"),
-            )
-            return
-
-        await query.edit_message_text(
-            "🎒 INVENTARIO\n"
-            "━━━━━━━━━━━━━━━━━━\n\n"
-            "Esta opción está reservada para el sistema "
-            "de inventario del MMORPG.\n\n"
-            "El menú ya tiene preparada la entrada, pero "
-            "necesita conectarse al módulo que administra "
-            "los objetos del personaje.",
-            reply_markup=teclado_volver("perfil"),
-        )
-
         return
 
     # --------------------------------------------------------
@@ -320,25 +326,52 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_habilidades":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder a las habilidades.",
-                reply_markup=teclado_volver("perfil"),
-            )
+        if not await requiere_personaje(query, user_id, "perfil"):
             return
 
-        await query.edit_message_text(
+        try:
+            habilidades = habilidades_de_personaje(user_id) or []
+        except Exception:
+            logger.exception("Error cargando las habilidades.")
+            habilidades = []
+
+        if habilidades:
+            texto_habilidades = "\n".join(
+                f"✨ {habilidad}" for habilidad in habilidades
+            )
+        else:
+            texto_habilidades = (
+                "Todavía no tienes habilidades disponibles."
+            )
+
+        await editar_menu(
+            query,
             "✨ HABILIDADES\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Esta opción está reservada para el sistema "
-            "de habilidades del MMORPG.\n\n"
-            "El menú ya tiene preparada la entrada, pero "
-            "necesita conectarse al módulo de habilidades.",
-            reply_markup=teclado_volver("perfil"),
+            f"{texto_habilidades}",
+            teclado_volver("perfil"),
         )
+        return
 
+    # --------------------------------------------------------
+    # INVENTARIO
+    # --------------------------------------------------------
+
+    if data == "menu_inventario":
+        if not await requiere_personaje(query, user_id, "perfil"):
+            return
+
+        # El sistema de tienda existente se mantiene accesible.
+        # No se inventa una segunda base de datos de inventario.
+        await editar_menu(
+            query,
+            "🎒 INVENTARIO\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+            "Abre la tienda del bot para acceder al sistema "
+            "de objetos que ya existe:\n\n"
+            "/tienda",
+            teclado_volver("perfil"),
+        )
         return
 
     # --------------------------------------------------------
@@ -346,25 +379,16 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_social":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder a las funciones sociales.",
-                reply_markup=teclado_volver(),
-            )
+        if not await requiere_personaje(query, user_id):
             return
 
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "🤝 SOCIAL\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Selecciona una opción:\n\n"
-            "👥 Amigos\n"
-            "⚔️ Grupo\n"
-            "🏰 Gremio",
-            reply_markup=teclado_social(),
+            "Selecciona una opción:",
+            teclado_social(),
         )
-
         return
 
     # --------------------------------------------------------
@@ -372,23 +396,18 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_amigos":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder a Amigos.",
-                reply_markup=teclado_volver("social"),
-            )
+        if not await requiere_personaje(query, user_id, "social"):
             return
 
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "👥 AMIGOS\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Utiliza /amigos para consultar tus amigos.\n\n"
-            "Puedes regresar a Social con el botón inferior.",
-            reply_markup=teclado_volver("social"),
+            "Usa /amigos para consultar tu lista de amigos.\n"
+            "Usa /solicitudes para revisar las solicitudes.\n"
+            "Usa /invitar para invitar a un jugador.",
+            teclado_volver("social"),
         )
-
         return
 
     # --------------------------------------------------------
@@ -396,17 +415,15 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_grupo":
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "⚔️ GRUPO\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Esta opción está reservada para el sistema "
-            "de grupos del MMORPG.\n\n"
-            "El menú ya tiene preparada la entrada, pero "
-            "necesita conectarse al módulo de grupos.",
-            reply_markup=teclado_volver("social"),
+            "El sistema de grupos de combate necesita su "
+            "propio módulo de grupos.\n"
+            "Esta opción no modifica tu personaje ni tu progreso.",
+            teclado_volver("social"),
         )
-
         return
 
     # --------------------------------------------------------
@@ -414,17 +431,14 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_gremio":
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "🏰 GREMIO\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Esta opción está reservada para el sistema "
-            "de gremios del MMORPG.\n\n"
-            "El menú ya tiene preparada la entrada, pero "
-            "necesita conectarse al módulo de gremios.",
-            reply_markup=teclado_volver("social"),
+            "El sistema de gremios todavía no está implementado "
+            "en el repositorio actual.",
+            teclado_volver("social"),
         )
-
         return
 
     # --------------------------------------------------------
@@ -432,25 +446,17 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_mensajes":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder a Mensajes.",
-                reply_markup=teclado_volver(),
-            )
+        if not await requiere_personaje(query, user_id):
             return
 
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "✉️ MENSAJES\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Aquí estará tu bandeja de mensajes privados "
-            "y el historial de conversaciones.\n\n"
-            "Esta entrada necesita conectarse al sistema "
-            "de mensajería del MMORPG.",
-            reply_markup=teclado_volver(),
+            "El sistema de bandeja e historial de mensajes "
+            "privados del MMORPG todavía necesita implementarse.",
+            teclado_volver(),
         )
-
         return
 
     # --------------------------------------------------------
@@ -458,26 +464,17 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_mapa":
-
-        if not personaje_completo(user_id):
-            await query.edit_message_text(
-                "🔒 Debes completar el registro antes "
-                "de acceder al mapa.",
-                reply_markup=teclado_volver(),
-            )
+        if not await requiere_personaje(query, user_id):
             return
 
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "🗺️ MAPA\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Aquí estará el mapa del MMORPG.\n\n"
-            "La exploración se realizará mediante botones "
-            "para desplazarte entre las distintas zonas.\n\n"
-            "Esta entrada necesita conectarse al sistema "
-            "de mapas y exploración.",
-            reply_markup=teclado_volver(),
+            "El sistema de mapa y exploración por botones "
+            "todavía necesita implementarse.",
+            teclado_volver(),
         )
-
         return
 
     # --------------------------------------------------------
@@ -485,17 +482,13 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_configuracion":
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "⚙️ CONFIGURACIÓN\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "Selecciona una opción:\n\n"
-            "📖 Ayuda\n"
-            "🌐 Idioma\n"
-            "🔌 Desconectar",
-            reply_markup=teclado_configuracion(),
+            "Selecciona una opción:",
+            teclado_configuracion(),
         )
-
         return
 
     # --------------------------------------------------------
@@ -503,55 +496,45 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_ayuda":
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "📖 AYUDA\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
             "/start — Iniciar el bot.\n"
-            "/lang — Seleccionar o cambiar idioma.\n"
             "/menu — Abrir el menú principal.\n"
-            "/reg Nombre.Pais — Registrar nombre y país.\n"
-            "/perfil — Consultar tu personaje.\n"
-            "/amigos — Consultar tus amigos.\n"
+            "/lang — Cambiar el idioma.\n"
+            "/reg Nombre.Pais — Registrar tu personaje.\n"
+            "/amigos — Consultar amigos.\n"
+            "/solicitudes — Consultar solicitudes.\n"
+            "/tienda — Abrir la tienda.\n"
             "/help — Consultar la ayuda general.\n\n"
-            "Registro del MMORPG:\n"
-            "1. Seleccionar idioma.\n"
-            "2. Registrar nombre y país.\n"
-            "3. Elegir raza.\n"
-            "4. Elegir una clase compatible.",
-            reply_markup=teclado_volver("configuracion"),
+            "El perfil se consulta desde:\n"
+            "Menú → Mi Perfil → Perfil.",
+            teclado_volver("configuracion"),
         )
-
         return
 
     # --------------------------------------------------------
     # IDIOMA
     # --------------------------------------------------------
 
-    if data == "menu_idioma" or data == "menu_lang":
+    if data in ("menu_idioma", "menu_lang"):
+        from comandos.lang import teclado_idiomas
 
-        idioma = obtener_idioma(user_id)
+        idioma = nombre_idioma_usuario(user_id)
 
-        informacion_idioma = IDIOMAS.get(
-            idioma,
-            {"native": "Español"},
-        )
-
-        nombre_idioma = informacion_idioma["native"]
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "🌐 IDIOMA DEL BOT\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            f"Idioma actual: {nombre_idioma}\n\n"
-            "Selecciona un idioma de la lista.\n\n"
-            "También puedes utilizar:\n"
+            f"Idioma actual: {idioma}\n\n"
+            "Selecciona un idioma. También puedes escribir:\n"
             "/lang español\n"
             "/lang spanish\n"
             "/lang English\n"
             "/lang 日本語",
-            reply_markup=teclado_idiomas(),
+            teclado_idiomas(),
         )
-
         return
 
     # --------------------------------------------------------
@@ -559,16 +542,13 @@ async def menu_callback(
     # --------------------------------------------------------
 
     if data == "menu_desconectar":
-
-        await query.edit_message_text(
+        await editar_menu(
+            query,
             "🔌 DESCONECTAR\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
-            "La opción de desconexión está preparada "
-            "en el menú, pero todavía necesita conectarse "
-            "al sistema de sesiones del bot.\n\n"
-            "Esta opción no eliminará tu registro ni "
-            "tu progreso.",
-            reply_markup=teclado_volver("configuracion"),
+            "La desconexión de sesiones debe conectarse "
+            "al sistema de sesiones existente.\n\n"
+            "Tu personaje y tu progreso no se eliminarán.",
+            teclado_volver("configuracion"),
         )
-
         return
